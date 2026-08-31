@@ -15,6 +15,7 @@ from sqlalchemy import (
     Text,
     UniqueConstraint,
     func,
+    text,
 )
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
@@ -219,3 +220,76 @@ class Resume(Base):
     created_at: Mapped[dt.datetime] = _now()
 
     candidate: Mapped[Candidate] = relationship(back_populates="resumes")
+
+
+class JobQueue(Base):
+    """Postgres-backed work queue, consumed with FOR UPDATE SKIP LOCKED.
+
+    The idempotency key is a UNIQUE constraint rather than application logic
+    (rule D-6): enqueueing the same work twice is a no-op enforced by the
+    database, and re-running a job produces an identical row.
+    """
+
+    __tablename__ = "job_queue"
+    __table_args__ = (
+        UniqueConstraint("idempotency_key", name="uq_job_idempotency"),
+        # Partial index: the queue is scanned almost exclusively for pending work,
+        # and the table is mostly completed rows.
+        Index(
+            "ix_job_queue_claimable",
+            "job_type",
+            "run_after",
+            postgresql_where=text("status = 'pending'"),
+        ),
+        Index("ix_job_queue_lease", "status", "locked_at"),
+    )
+
+    id: Mapped[uuid.UUID] = _pk()
+    org_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)
+    job_type: Mapped[str] = mapped_column(String(40), nullable=False)
+    payload: Mapped[dict[str, object]] = mapped_column(JSONB, nullable=False, default=dict)
+    idempotency_key: Mapped[str] = mapped_column(String(64), nullable=False)
+
+    status: Mapped[str] = mapped_column(String(20), nullable=False, default="pending")
+    priority: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    attempts: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    max_attempts: Mapped[int] = mapped_column(Integer, nullable=False, default=5)
+    run_after: Mapped[dt.datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    locked_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    locked_by: Mapped[str | None] = mapped_column(String(80), nullable=True)
+    # Retryable vs terminal is an explicit classification, not a guess at the
+    # call site: terminal failures skip retries entirely and go straight to the
+    # dead-letter state.
+    error_class: Mapped[str | None] = mapped_column(String(40), nullable=True)
+    last_error: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    created_at: Mapped[dt.datetime] = _now()
+    finished_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+class ResumeText(Base):
+    """Extracted text for one resume.
+
+    Redacted text is a separate column from the raw extraction: only the
+    redacted form is allowed to reach embeddings, prompts, logs, or the search
+    index (M4 fills it). Keeping them apart at the schema level makes the wrong
+    one hard to use by accident.
+    """
+
+    __tablename__ = "resume_texts"
+    __table_args__ = (UniqueConstraint("resume_id", name="uq_resume_text"),)
+
+    id: Mapped[uuid.UUID] = _pk()
+    org_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    resume_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("resumes.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    raw_text: Mapped[str] = mapped_column(Text, nullable=False)
+    text_redacted: Mapped[str | None] = mapped_column(Text, nullable=True)
+    char_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    sections: Mapped[dict[str, object]] = mapped_column(JSONB, nullable=False, default=dict)
+    extractor: Mapped[str] = mapped_column(String(30), nullable=False)
+    created_at: Mapped[dt.datetime] = _now()

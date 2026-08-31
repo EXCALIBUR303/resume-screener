@@ -1,0 +1,154 @@
+"""Worker entry point.
+
+Two pools with different privileges, selected by ``WORKER_TYPES``:
+
+* ``parse``  — runs with ``network_mode: none``. It touches attacker-controlled
+  bytes, so it is given nothing to exfiltrate with.
+* ``embed,score`` — reaches the model host only.
+
+The split is enforced by compose, not by convention.
+"""
+
+from __future__ import annotations
+
+import asyncio
+import os
+import resource
+import signal
+import socket
+import sys
+from typing import Any
+
+import structlog
+
+from screener_api.db import dispose_engine, init_engine
+from screener_api.ingest.storage import BlobStore
+from screener_api.logging import configure_logging
+from screener_api.parse.pipeline import handle_parse_job
+from screener_api.queue import (
+    ErrorClass,
+    JobType,
+    TerminalError,
+    claim,
+    complete,
+    fail,
+    reclaim_expired_leases,
+)
+from screener_api.security.crypto import derive_kek
+from screener_api.settings import get_settings
+
+log = structlog.get_logger()
+_stopping = False
+
+
+def _apply_rlimits(max_memory_mb: int) -> None:
+    """Hard ceiling on address space, so a decompression bomb that slips past
+    validation kills the job rather than the host."""
+    limit = max_memory_mb * 1024 * 1024
+    try:
+        resource.setrlimit(resource.RLIMIT_AS, (limit, limit))
+    except (ValueError, OSError) as exc:  # pragma: no cover - platform dependent
+        log.warning("worker.rlimit_unavailable", error=str(exc))
+
+
+def _handle_signal(signum: int, _frame: Any) -> None:
+    global _stopping
+    _stopping = True
+    log.info("worker.stopping", signal=signum)
+
+
+async def run() -> int:
+    settings = get_settings()
+    configure_logging(settings.log_level)
+
+    types = [JobType(t) for t in os.environ.get("WORKER_TYPES", "parse").split(",") if t]
+    worker_id = f"{socket.gethostname()}:{os.getpid()}"
+    _apply_rlimits(settings.parse_memory_limit_mb)
+
+    init_engine(settings)
+    from screener_api.db import _sessionmaker
+
+    if _sessionmaker is None:
+        raise RuntimeError("engine not initialised")
+
+    store = BlobStore(
+        settings.storage_local_path,
+        kek=derive_kek(settings.app_kek.get_secret_value(), settings.app_kek_version),
+        kek_version=settings.app_kek_version,
+    )
+
+    log.info("worker.started", worker=worker_id, types=[str(t) for t in types])
+    idle_ticks = 0
+
+    while not _stopping:
+        async with _sessionmaker() as session:
+            # Any worker may reclaim: the sweeper does not need its own process.
+            if idle_ticks % 60 == 0:
+                reclaimed = await reclaim_expired_leases(
+                    session, timeout_seconds=settings.worker_lease_timeout_seconds
+                )
+                if reclaimed:
+                    log.warning("worker.leases_reclaimed", count=reclaimed)
+                await session.commit()
+
+            job = await claim(session, worker=worker_id, job_types=types)
+            if job is None:
+                await session.commit()
+                idle_ticks += 1
+                await asyncio.sleep(settings.worker_poll_interval_ms / 1000)
+                continue
+
+            idle_ticks = 0
+            structlog.contextvars.bind_contextvars(job_id=str(job.id), job_type=job.job_type)
+            try:
+                if job.job_type == str(JobType.PARSE):
+                    await handle_parse_job(session, dict(job.payload), store=store)
+                else:
+                    raise TerminalError(f"no handler for job type {job.job_type}")
+                await complete(session, job)
+                await session.commit()
+            except TerminalError as exc:
+                await session.rollback()
+                await _record_failure(session, job.id, exc, ErrorClass.TERMINAL)
+            except Exception as exc:
+                await session.rollback()
+                log.exception("job.failed")
+                await _record_failure(session, job.id, exc, ErrorClass.RETRYABLE)
+            finally:
+                structlog.contextvars.clear_contextvars()
+
+    await dispose_engine()
+    log.info("worker.stopped")
+    return 0
+
+
+async def _record_failure(
+    session: Any, job_id: Any, error: BaseException, error_class: ErrorClass
+) -> None:
+    """Failure bookkeeping runs in its own transaction: the job's own
+    transaction was rolled back, and losing the error record would strand the
+    job as permanently running."""
+    from sqlalchemy import select
+
+    from screener_api.db import _sessionmaker
+    from screener_api.models import JobQueue
+
+    if _sessionmaker is None:  # pragma: no cover
+        return
+    async with _sessionmaker() as bookkeeping:
+        job = (
+            await bookkeeping.execute(select(JobQueue).where(JobQueue.id == job_id))
+        ).scalar_one_or_none()
+        if job is not None:
+            await fail(bookkeeping, job, error=error, error_class=error_class)
+            await bookkeeping.commit()
+
+
+def main() -> int:
+    signal.signal(signal.SIGTERM, _handle_signal)
+    signal.signal(signal.SIGINT, _handle_signal)
+    return asyncio.run(run())
+
+
+if __name__ == "__main__":
+    sys.exit(main())

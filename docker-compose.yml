@@ -14,7 +14,11 @@ services:
     # run from the host would silently hit the wrong database. Inside the compose
     # network the API still reaches it as db:5432.
     ports: ["5433:5432"]
-    volumes: ["pgdata:/var/lib/postgresql/data"]
+    volumes:
+      - "pgdata:/var/lib/postgresql/data"
+      # The socket directory is shared with worker-parse, which has
+      # network_mode: none and reaches the database this way.
+      - "pgsocket:/var/run/postgresql"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER:-screener} -d $${POSTGRES_DB:-screener}"]
       interval: 5s
@@ -39,10 +43,35 @@ services:
     security_opt: ["no-new-privileges:true"]
     mem_limit: 1g
 
-  # worker-parse arrives in M3. It is declared here so the network isolation is
-  # a property of the stack from day one rather than a retrofit:
-  #   network_mode: none, read_only, cap_drop ALL, non-root, rlimits.
+  worker-parse:
+    build:
+      context: .
+      dockerfile: infra/docker/Dockerfile.worker
+    env_file: [.env]
+    environment:
+      # Empty host + PGHOST directory = connect over the unix socket. There is
+      # no TCP stack available to this container at all.
+      POSTGRES_HOST: ""
+      POSTGRES_SOCKET_DIR: /var/run/postgresql
+      WORKER_TYPES: parse
+    depends_on:
+      db: { condition: service_healthy }
+    # The whole point of this service. It is the only process that touches
+    # attacker-controlled bytes, so it is given nothing to exfiltrate with:
+    # no network at all, a read-only root filesystem, no capabilities, non-root.
+    # Everything else here is secondary to this one line.
+    network_mode: none
+    read_only: true
+    tmpfs: ["/tmp"]
+    cap_drop: ["ALL"]
+    security_opt: ["no-new-privileges:true"]
+    mem_limit: 1g
+    volumes:
+      - "blobs:/data/files"
+      - "pgsocket:/var/run/postgresql"
+    restart: unless-stopped
 
 volumes:
   pgdata:
   blobs:
+  pgsocket:

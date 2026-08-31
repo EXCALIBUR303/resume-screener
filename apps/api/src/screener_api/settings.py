@@ -38,6 +38,9 @@ class Settings(BaseSettings):
     postgres_password: SecretStr = SecretStr("CHANGE_ME_dev_only")
     postgres_db: str = "screener"
     postgres_host: str = "db"
+    # When set, connect over a unix socket instead of TCP. This is what lets
+    # worker-parse run with network_mode: none and still reach Postgres.
+    postgres_socket_dir: str = ""
     postgres_port: int = 5432
     db_pool_size: int = 10
     db_statement_timeout_ms: int = 15_000
@@ -69,6 +72,16 @@ class Settings(BaseSettings):
     zip_max_uncompressed_bytes: int = 100 * 1024 * 1024
     clamav_enabled: bool = False
 
+    ocr_enabled: bool = True
+    ocr_min_confidence: int = 60
+    parse_timeout_seconds: int = 60
+    parse_memory_limit_mb: int = 1024
+
+    worker_poll_interval_ms: int = 500
+    worker_max_attempts: int = 5
+    worker_lease_timeout_seconds: int = 300
+    worker_concurrency_per_org: int = 4
+
     # Deliberately a plain property, NOT a computed_field: a computed_field is
     # included in repr() and model_dump(), which would re-expose the password
     # that SecretStr exists to hide. Caught by test_secrets_do_not_leak_through_repr.
@@ -77,9 +90,14 @@ class Settings(BaseSettings):
         """The DSN the app actually connects with. Contains the password — never log it."""
         if self.database_url is not None:
             return str(self.database_url)
+        password = self.postgres_password.get_secret_value()
+        if self.postgres_socket_dir:
+            return (
+                f"postgresql+psycopg://{self.postgres_user}:{password}"
+                f"@/{self.postgres_db}?host={self.postgres_socket_dir}"
+            )
         return (
-            f"postgresql+psycopg://{self.postgres_user}:"
-            f"{self.postgres_password.get_secret_value()}@"
+            f"postgresql+psycopg://{self.postgres_user}:{password}@"
             f"{self.postgres_host}:{self.postgres_port}/{self.postgres_db}"
         )
 

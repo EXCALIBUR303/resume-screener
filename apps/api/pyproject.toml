@@ -26,6 +26,14 @@ dependencies = [
     "python-magic>=0.4.27",
     "pypdf>=5.1",            # MIT; see ADR-0002 for why not PyMuPDF
     "python-multipart>=0.0.20",
+    "python-docx>=1.1",
+    # Not optional: python-docx uses lxml, whose default parser resolves
+    # external entities. defusedxml is what stops XXE in a DOCX.
+    "defusedxml>=0.7",
+    "pytesseract>=0.3.13",
+    "pdf2image>=1.17",       # shells out to poppler's pdftoppm; no AGPL dependency
+    "pillow>=11.0",
+    "langdetect>=1.0.9",
 ]
 
 [project.optional-dependencies]
@@ -70,7 +78,9 @@ mypy_path = "src"
 packages = ["screener_api"]
 
 [[tool.mypy.overrides]]
-module = ["alembic.*"]
+# No py.typed marker upstream. Scoped to these packages rather than global, so a
+# genuinely untyped import elsewhere still fails.
+module = ["alembic.*", "pytesseract.*", "pdf2image.*", "langdetect.*", "defusedxml.*"]
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]

@@ -25,6 +25,8 @@ from screener_api.db import get_session
 from screener_api.ingest.storage import BlobStore
 from screener_api.ingest.validation import Limits, UploadRejectedError, validate
 from screener_api.models import Candidate, Resume, StoredFile
+from screener_api.parse.pipeline import PIPELINE_VERSION
+from screener_api.queue import JobType, enqueue, idempotency_key
 from screener_api.security import audit
 from screener_api.security.crypto import derive_kek
 from screener_api.security.deps import Actor, requires
@@ -178,6 +180,22 @@ async def upload_resume(
         parse_status="pending",
     )
     session.add(resume)
+
+    # Enqueued in the SAME transaction as the resume row: a job can never
+    # reference a resume that was not committed, and a committed resume can
+    # never be left without a job. That pairing is why the queue lives in
+    # Postgres rather than Redis (ADR-0001).
+    await enqueue(
+        session,
+        job_type=JobType.PARSE,
+        payload={"resume_id": str(resume.id)},
+        key=idempotency_key(
+            str(JobType.PARSE),
+            input_digest=blob.sha256,
+            pipeline_version=PIPELINE_VERSION,
+        ),
+        org_id=actor.org_id,
+    )
 
     await audit.record(
         session,

@@ -1,0 +1,26 @@
+# syntax=docker/dockerfile:1
+FROM python:3.12-slim AS base
+ENV PYTHONUNBUFFERED=1 PYTHONDONTWRITEBYTECODE=1
+WORKDIR /app
+
+FROM base AS deps
+COPY --from=ghcr.io/astral-sh/uv:0.5.11 /uv /usr/local/bin/uv
+COPY apps/api/requirements.lock ./
+RUN uv pip install --system --no-cache --require-hashes -r requirements.lock
+
+FROM base AS runtime
+# tesseract-ocr: the OCR engine.  poppler-utils: pdftoppm, which rasterises PDFs
+# for OCR (chosen over PyMuPDF to keep the project off AGPL — see ADR-0002).
+# libmagic1: content sniffing.
+RUN apt-get update && apt-get install -y --no-install-recommends \
+      tesseract-ocr tesseract-ocr-eng poppler-utils libmagic1 \
+ && rm -rf /var/lib/apt/lists/*
+
+RUN useradd --create-home --uid 10002 worker
+COPY --from=deps /usr/local/lib/python3.12/site-packages /usr/local/lib/python3.12/site-packages
+COPY --from=deps /usr/local/bin /usr/local/bin
+COPY --chown=worker:worker apps/api/src ./src
+RUN mkdir -p /data/files && chown -R worker:worker /data
+ENV PYTHONPATH=/app/src
+USER worker
+CMD ["python", "-m", "screener_api.worker"]
