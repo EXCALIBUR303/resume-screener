@@ -40,9 +40,23 @@ jobs:
         working-directory: apps/api
         run: .venv/bin/bandit -q -r src -ll
 
+      # No `|| fallback`: the original form fell through to auditing an empty
+      # environment and reported "No known vulnerabilities found" while three
+      # real CVEs sat in `cryptography` — the library doing our envelope
+      # encryption. A security gate that can pass by failing over is worse than
+      # no gate, because it reads as evidence.
+      #
+      # --skip-editable excludes our own package. --strict is deliberately OFF:
+      # it treats "not on PyPI" as an error, and the spaCy model is installed
+      # from a GitHub URL and is legitimately unauditable. Real vulnerabilities
+      # still exit non-zero — verified by planting urllib3 1.26.5, which
+      # produced 13 findings and exit 1.
       - name: Dependency audit (pip-audit)
         working-directory: apps/api
-        run: uvx pip-audit --strict -r <(uv pip freeze) || uvx pip-audit --strict
+        run: |
+          .venv/bin/python -m pip --version >/dev/null 2>&1 || uv pip install pip -q
+          uv pip install pip-audit -q
+          .venv/bin/pip-audit --skip-editable
 
       - name: Semgrep
         uses: semgrep/semgrep-action@v1

@@ -20,7 +20,7 @@ dependencies = [
     "structlog>=24.4",
     "argon2-cffi>=23.1",
     "pyjwt>=2.10",
-    "cryptography>=44.0",
+    "cryptography>=50.0",
     # Content sniffing by magic bytes. Needs libmagic (brew install libmagic /
     # apt install libmagic1) — extension and Content-Type are attacker-controlled.
     "python-magic>=0.4.27",
