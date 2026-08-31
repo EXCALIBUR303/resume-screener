@@ -71,6 +71,28 @@ services:
       - "pgsocket:/var/run/postgresql"
     restart: unless-stopped
 
+  worker-ai:
+    build:
+      context: .
+      dockerfile: infra/docker/Dockerfile.worker
+    env_file: [.env]
+    environment:
+      POSTGRES_HOST: db
+      WORKER_TYPES: embed,score
+    depends_on:
+      db: { condition: service_healthy }
+    # Unlike worker-parse this pool DOES need egress, to reach the model host.
+    # It is a separate service precisely so that privilege is not granted to the
+    # process handling attacker-controlled bytes. It never touches raw uploads:
+    # it reads redacted text and chunk vectors only.
+    read_only: true
+    tmpfs: ["/tmp"]
+    cap_drop: ["ALL"]
+    security_opt: ["no-new-privileges:true"]
+    mem_limit: 2g
+    volumes: ["blobs:/data/files"]
+    restart: unless-stopped
+
 volumes:
   pgdata:
   blobs:

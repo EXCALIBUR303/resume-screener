@@ -72,6 +72,18 @@ class Settings(BaseSettings):
     zip_max_uncompressed_bytes: int = 100 * 1024 * 1024
     clamav_enabled: bool = False
 
+    llm_provider: Literal["stub", "ollama", "openai_compatible"] = "ollama"
+    llm_model: str = "qwen3:8b"
+    llm_base_url: str = "http://host.docker.internal:11434"
+    llm_api_key: SecretStr = SecretStr("")
+    llm_temperature: float = 0.2
+    llm_max_tokens: int = 2048
+    llm_timeout_seconds: int = 60
+    # 0 = unlimited, which is safe for a local model. Set a real number before
+    # ever pointing this at a paid endpoint.
+    llm_max_monthly_tokens: int = 0
+    llm_circuit_breaker_failures: int = 5
+
     ocr_enabled: bool = True
     ocr_min_confidence: int = 60
     parse_timeout_seconds: int = 60

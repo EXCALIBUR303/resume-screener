@@ -22,10 +22,25 @@ import structlog
 
 log = structlog.get_logger()
 
-# apps/api/src/screener_api/llm/prompts.py -> repo root is five levels up.
-# Overridable so the container can carry prompts at a different path.
-PROMPTS_DIR = Path(
-    os.environ.get("PROMPTS_DIR", str(Path(__file__).resolve().parents[5] / "prompts"))
+
+def _default_prompts_dir() -> Path:
+    """Find the prompts directory by searching upward.
+
+    Counting parents broke the moment the container laid the tree out one level
+    shallower than the repo (`/app/src/...` vs `apps/api/src/...`), and the
+    os.environ.get default was evaluated eagerly, so it crashed even with
+    PROMPTS_DIR set. Searching works in both layouts and cannot go out of range.
+    """
+    here = Path(__file__).resolve()
+    for parent in here.parents:
+        candidate = parent / "prompts"
+        if candidate.is_dir():
+            return candidate
+    return here.parent / "prompts"
+
+
+PROMPTS_DIR = (
+    Path(os.environ["PROMPTS_DIR"]) if os.environ.get("PROMPTS_DIR") else _default_prompts_dir()
 )
 
 _FRONT_MATTER = re.compile(r"\A---\n(.*?)\n---\n", re.S)

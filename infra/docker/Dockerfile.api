@@ -22,6 +22,8 @@ COPY --from=deps /usr/local/bin /usr/local/bin
 COPY --chown=appuser:appuser apps/api/src ./src
 COPY --chown=appuser:appuser apps/api/alembic ./alembic
 COPY --chown=appuser:appuser apps/api/alembic.ini ./
+COPY --chown=appuser:appuser prompts ./prompts
+ENV PROMPTS_DIR=/app/prompts
 # Blob store must be writable even though the rootfs is read-only.
 RUN mkdir -p /data/files && chown -R appuser:appuser /data
 ENV PYTHONPATH=/app/src

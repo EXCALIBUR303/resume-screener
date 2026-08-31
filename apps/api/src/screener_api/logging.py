@@ -74,6 +74,16 @@ PATTERNS: tuple[tuple[re.Pattern[str], str], ...] = (
 )
 
 
+def _is_sensitive(key: str, value: Any) -> bool:
+    """Deny-list by field name, but only for values that could BE the data.
+
+    An integer keyed "phone" is a count, not a phone number. Redacting it turned
+    the redaction telemetry itself into "[redacted]" — over-redaction again,
+    this time destroying the numbers that show the redactor is working.
+    """
+    return key.lower() in DENY_FIELDS and not isinstance(value, (int, float, bool))
+
+
 def _scrub(value: Any, depth: int = 0) -> Any:
     if depth > 6:
         return value
@@ -83,8 +93,7 @@ def _scrub(value: Any, depth: int = 0) -> Any:
         return value
     if isinstance(value, dict):
         return {
-            k: REDACTED if k.lower() in DENY_FIELDS else _scrub(v, depth + 1)
-            for k, v in value.items()
+            k: REDACTED if _is_sensitive(k, v) else _scrub(v, depth + 1) for k, v in value.items()
         }
     if isinstance(value, (list, tuple)):
         return type(value)(_scrub(v, depth + 1) for v in value)

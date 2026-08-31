@@ -108,3 +108,17 @@ def test_credentials_in_free_text_are_redacted(text: str) -> None:
 def test_real_phone_numbers_are_still_redacted(number: str) -> None:
     """Tightening the pattern must not have opened a hole."""
     assert number not in str(scrub(note=f"call {number} now")["note"])
+
+
+def test_counts_are_not_mistaken_for_the_data_they_count() -> None:
+    """Redaction telemetry read `{"PHONE": "[redacted]"}` — the count of phone
+    numbers removed was itself redacted. An integer keyed "phone" is a count,
+    not a phone number, and destroying it hides whether redaction is working."""
+    out = scrub(counts={"PHONE": 2, "EMAIL": 1, "PERSON": 3}, entities=6)
+    assert out["counts"] == {"PHONE": 2, "EMAIL": 1, "PERSON": 3}
+    assert out["entities"] == 6
+
+
+def test_string_values_under_denied_names_are_still_redacted() -> None:
+    assert scrub(phone="+91 98765 44321")["phone"] == REDACTED
+    assert scrub(email="a@b.com")["email"] == REDACTED

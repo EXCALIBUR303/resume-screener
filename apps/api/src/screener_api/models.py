@@ -9,6 +9,7 @@ from pgvector.sqlalchemy import Vector
 from sqlalchemy import (
     Boolean,
     DateTime,
+    Float,
     ForeignKey,
     Index,
     Integer,
@@ -348,4 +349,69 @@ class ResumeChunk(Base):
     char_end: Mapped[int] = mapped_column(Integer, nullable=False)
     section: Mapped[str | None] = mapped_column(String(40), nullable=True)
     embedding: Mapped[list[float] | None] = mapped_column(Vector(384), nullable=True)
+    created_at: Mapped[dt.datetime] = _now()
+
+
+class JobPosting(Base):
+    """A role to screen against.
+
+    Named `job_postings`, not `jobs`: `job_queue` already exists and a table
+    called `jobs` next to it would be read wrong by every future maintainer,
+    including me.
+    """
+
+    __tablename__ = "job_postings"
+
+    id: Mapped[uuid.UUID] = _pk()
+    org_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    title: Mapped[str] = mapped_column(String(200), nullable=False)
+    description: Mapped[str] = mapped_column(Text, nullable=False)
+    required_skills: Mapped[list[str]] = mapped_column(JSONB, nullable=False, default=list)
+    nice_to_have: Mapped[list[str]] = mapped_column(JSONB, nullable=False, default=list)
+    hard_requirements: Mapped[list[str]] = mapped_column(JSONB, nullable=False, default=list)
+    min_years: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    status: Mapped[str] = mapped_column(String(20), nullable=False, default="open")
+    created_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)
+    created_at: Mapped[dt.datetime] = _now()
+
+
+class Match(Base):
+    """One candidate scored against one role.
+
+    The uniqueness constraint carries the prompt version and model id, so a
+    re-score under a different prompt is a NEW row rather than an overwrite. A
+    score is never interpretable without knowing what produced it.
+    """
+
+    __tablename__ = "matches"
+    __table_args__ = (
+        UniqueConstraint("job_id", "resume_id", "prompt_version", "model_id", name="uq_match_run"),
+        Index("ix_matches_job_score", "job_id", "score"),
+    )
+
+    id: Mapped[uuid.UUID] = _pk()
+    org_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    job_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("job_postings.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    resume_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("resumes.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    score: Mapped[float] = mapped_column(Float, nullable=False)
+    components: Mapped[dict[str, object]] = mapped_column(JSONB, nullable=False, default=dict)
+    rubric: Mapped[dict[str, object]] = mapped_column(JSONB, nullable=False, default=dict)
+    evidence: Mapped[dict[str, object]] = mapped_column(JSONB, nullable=False, default=dict)
+    unmet_requirements: Mapped[list[str]] = mapped_column(JSONB, nullable=False, default=list)
+
+    # Provenance. Without these a stored score cannot be explained or reproduced.
+    degraded: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    partially_supported: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    injection_suspected: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    model_id: Mapped[str] = mapped_column(String(80), nullable=False)
+    prompt_version: Mapped[str] = mapped_column(String(40), nullable=False)
+    prompt_hash: Mapped[str] = mapped_column(String(64), nullable=False)
     created_at: Mapped[dt.datetime] = _now()

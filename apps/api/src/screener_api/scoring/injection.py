@@ -138,9 +138,28 @@ def detect(text: str) -> InjectionReport:
         line_bounds.append((cursor, cursor + len(line)))
         cursor += len(line) + 1
 
+    raw_lines = text.split("\n")
     for index, (start, end) in enumerate(line_bounds):
         if any(f.start < end and f.end > start for f in findings):
             doomed.add(index)
+
+    # Extend FORWARD only, to the end of the paragraph.
+    #
+    # The payload line ("...including Kubernetes and PostgreSQL at massive
+    # scale") triggers no pattern of its own and survived line-granular removal,
+    # handing the scorer exactly the skills the attacker wanted. It follows the
+    # trigger, so forward extension catches it.
+    #
+    # Extending BACKWARD was the first attempt and it over-removed: an injection
+    # appended directly beneath a genuine line took that line with it. A
+    # continuation follows its trigger; what precedes one is usually the real
+    # resume, and deleting it punishes the candidate for the attacker's
+    # formatting.
+    for index in sorted(doomed):
+        cursor = index + 1
+        while cursor < len(raw_lines) and raw_lines[cursor].strip():
+            doomed.add(cursor)
+            cursor += 1
 
     kept = [line for i, line in enumerate(text.split("\n")) if i not in doomed]
     sanitised = "\n".join(kept)

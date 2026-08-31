@@ -23,6 +23,8 @@ import structlog
 
 from screener_api.db import dispose_engine, init_engine
 from screener_api.ingest.storage import BlobStore
+from screener_api.llm.factory import build_gateway
+from screener_api.llm.prompts import latest_version, load
 from screener_api.logging import configure_logging
 from screener_api.parse.pipeline import handle_parse_job
 from screener_api.queue import (
@@ -35,6 +37,7 @@ from screener_api.queue import (
     reclaim_expired_leases,
 )
 from screener_api.retrieval.pipeline import handle_embed_job
+from screener_api.scoring.pipeline import handle_score_job
 from screener_api.security.crypto import derive_kek
 from screener_api.settings import get_settings
 
@@ -43,8 +46,14 @@ _stopping = False
 
 
 def _apply_rlimits(max_memory_mb: int) -> None:
-    """Hard ceiling on address space, so a decompression bomb that slips past
-    validation kills the job rather than the host."""
+    """Hard ceiling on address space for the PARSE pool only.
+
+    RLIMIT_AS counts *virtual* address space, and onnxruntime reserves far more
+    of it than it ever resides — a 1 GB cap made the embedding model fail with
+    std::bad_alloc. The limit exists to stop a decompression bomb in the worker
+    that handles hostile bytes; the AI pool parses nothing untrusted and is
+    bounded by the container's mem_limit instead.
+    """
     limit = max_memory_mb * 1024 * 1024
     try:
         resource.setrlimit(resource.RLIMIT_AS, (limit, limit))
@@ -64,7 +73,9 @@ async def run() -> int:
 
     types = [JobType(t) for t in os.environ.get("WORKER_TYPES", "parse").split(",") if t]
     worker_id = f"{socket.gethostname()}:{os.getpid()}"
-    _apply_rlimits(settings.parse_memory_limit_mb)
+    # Only the pool that touches attacker-controlled bytes gets the hard cap.
+    if types == [JobType.PARSE]:
+        _apply_rlimits(settings.parse_memory_limit_mb)
 
     init_engine(settings)
     from screener_api.db import _sessionmaker
@@ -75,7 +86,17 @@ async def run() -> int:
     kek = derive_kek(settings.app_kek.get_secret_value(), settings.app_kek_version)
     store = BlobStore(settings.storage_local_path, kek=kek, kek_version=settings.app_kek_version)
 
-    log.info("worker.started", worker=worker_id, types=[str(t) for t in types])
+    # Built once per process: the gateway carries the token budget and circuit
+    # breaker, which must be shared across jobs to mean anything.
+    gateway = build_gateway(settings)
+    prompt = load("match_score", latest_version("match_score"))
+    log.info(
+        "worker.started",
+        worker=worker_id,
+        types=[str(t) for t in types],
+        prompt=prompt.version_id,
+        prompt_hash=prompt.content_hash[:12],
+    )
     idle_ticks = 0
 
     while not _stopping:
@@ -98,9 +119,15 @@ async def run() -> int:
                 continue
 
             idle_ticks = 0
-            structlog.contextvars.bind_contextvars(job_id=str(job.id), job_type=job.job_type)
+            # Read identifiers BEFORE the try: after session.rollback() the ORM
+            # object is expired, and touching job.id triggers a lazy refresh —
+            # IO outside the greenlet, which raised MissingGreenlet and left the
+            # job stuck in 'running' until the lease sweeper rescued it.
+            job_id = job.id
+            job_type = job.job_type
+            structlog.contextvars.bind_contextvars(job_id=str(job_id), job_type=job_type)
             try:
-                if job.job_type == str(JobType.PARSE):
+                if job_type == str(JobType.PARSE):
                     await handle_parse_job(
                         session,
                         dict(job.payload),
@@ -108,19 +135,23 @@ async def run() -> int:
                         kek=kek,
                         kek_version=settings.app_kek_version,
                     )
-                elif job.job_type == str(JobType.EMBED):
+                elif job_type == str(JobType.EMBED):
                     await handle_embed_job(session, dict(job.payload))
+                elif job_type == str(JobType.SCORE):
+                    await handle_score_job(
+                        session, dict(job.payload), gateway=gateway, prompt=prompt
+                    )
                 else:
-                    raise TerminalError(f"no handler for job type {job.job_type}")
+                    raise TerminalError(f"no handler for job type {job_type}")
                 await complete(session, job)
                 await session.commit()
             except TerminalError as exc:
                 await session.rollback()
-                failure = (job.id, exc, ErrorClass.TERMINAL)
+                failure = (job_id, exc, ErrorClass.TERMINAL)
             except Exception as exc:
                 await session.rollback()
                 log.exception("job.failed")
-                failure = (job.id, exc, ErrorClass.RETRYABLE)
+                failure = (job_id, exc, ErrorClass.RETRYABLE)
             finally:
                 structlog.contextvars.clear_contextvars()
 
