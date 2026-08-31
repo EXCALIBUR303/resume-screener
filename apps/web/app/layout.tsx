@@ -28,8 +28,8 @@ export default function RootLayout({ children }: { children: ReactNode }) {
             borderBottom: "1px solid #e3d2b4",
           }}
         >
-          Decision support only. This tool does not make hiring decisions, and must not be
-          used with real candidate data.
+          Decision support only. This tool does not make hiring decisions, and must not be used with
+          real candidate data.
         </div>
         <main style={{ maxWidth: 720, margin: "0 auto", padding: "48px 24px" }}>{children}</main>
       </body>

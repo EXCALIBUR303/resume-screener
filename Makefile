@@ -1,5 +1,8 @@
 .DEFAULT_GOAL := help
 SHELL := /bin/bash
+# This machine has no IPv6 route, and Node stalls on hosts that publish AAAA
+# records unless address auto-selection is disabled. See ADR-0005.
+export NODE_OPTIONS := --no-network-family-autoselection --dns-result-order=ipv4first
 API := apps/api
 VENV := $(API)/.venv/bin
 
@@ -11,7 +14,8 @@ help: ## Show this help
 .PHONY: bootstrap
 bootstrap: ## Install all dependencies (api + web)
 	cd $(API) && uv venv --python 3.12 && uv pip install -e ".[dev]"
-	cd apps/web && (pnpm install || npm install --no-audit --no-fund)
+	# pnpm ignores NODE_OPTIONS (compiled launcher), so npm is the reliable path here.
+	cd apps/web && npm install --no-audit --no-fund
 	@echo "Bootstrapped. Next: make up"
 
 .PHONY: up
@@ -46,7 +50,7 @@ dev: ## Run the API locally with reload
 .PHONY: lint
 lint: ## Lint and typecheck everything
 	cd $(API) && $(CURDIR)/$(VENV)/ruff check . && $(CURDIR)/$(VENV)/ruff format --check . && $(CURDIR)/$(VENV)/mypy
-	cd apps/web && (pnpm typecheck || npx tsc --noEmit)
+	cd apps/web && npx tsc --noEmit && npx biome check .
 
 .PHONY: fmt
 fmt: ## Auto-format everything

@@ -21,11 +21,20 @@ export default async function Home() {
         M0 — foundations. Upload and ranking arrive in M2 and M6.
       </p>
 
-      <h2 style={{ fontSize: 15, marginTop: 32, textTransform: "uppercase", letterSpacing: ".08em" }}>
+      <h2
+        style={{ fontSize: 15, marginTop: 32, textTransform: "uppercase", letterSpacing: ".08em" }}
+      >
         System status
       </h2>
       {ready ? (
-        <dl style={{ display: "grid", gridTemplateColumns: "auto 1fr", gap: "6px 20px", fontSize: 14 }}>
+        <dl
+          style={{
+            display: "grid",
+            gridTemplateColumns: "auto 1fr",
+            gap: "6px 20px",
+            fontSize: 14,
+          }}
+        >
           <dt style={{ color: "#5d655e" }}>API</dt>
           <dd style={{ margin: 0 }}>{ready.status}</dd>
           <dt style={{ color: "#5d655e" }}>Database</dt>
