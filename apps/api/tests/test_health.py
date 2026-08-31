@@ -29,3 +29,10 @@ def test_hostile_request_id_is_replaced(client: TestClient) -> None:
     returned = client.get("/healthz", headers={"x-request-id": hostile}).headers["x-request-id"]
     assert returned != hostile
     assert "\n" not in returned
+
+
+def test_cors_is_an_allowlist_never_a_wildcard(settings) -> None:
+    """A wildcard origin with credentials is invalid, and is the classic way a
+    browser app hands its own API to any site the user happens to visit."""
+    assert "*" not in settings.cors_origins
+    assert all(o.startswith(("http://", "https://")) for o in settings.cors_origins)

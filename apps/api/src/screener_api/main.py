@@ -8,6 +8,7 @@ from typing import Any
 
 import structlog
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import text
 
 from screener_api.db import dispose_engine, init_engine
@@ -53,6 +54,17 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     )
     app.state.settings = settings
     app.add_middleware(RequestContextMiddleware)
+    # Explicit origin allowlist, never "*". Credentials are sent on these
+    # requests, and a wildcard with credentials is both invalid and the classic
+    # way a browser app leaks its own API to any site the user visits.
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=settings.cors_origins,
+        allow_credentials=True,
+        allow_methods=["GET", "POST", "DELETE", "OPTIONS"],
+        allow_headers=["Authorization", "Content-Type"],
+        max_age=600,
+    )
     app.include_router(auth.router)
     app.include_router(admin.router)
     app.include_router(resumes.router)

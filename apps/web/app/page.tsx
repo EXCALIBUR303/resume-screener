@@ -1,52 +1,75 @@
-const API = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000";
+"use client";
+
+import { API_BASE, getToken } from "@/lib/api";
+import Link from "next/link";
+import { useEffect, useState } from "react";
 
 type Readiness = { status: string; database?: string; pgvector?: string };
 
-async function getReadiness(): Promise<Readiness | null> {
-  try {
-    const res = await fetch(`${API}/readyz`, { cache: "no-store" });
-    return (await res.json()) as Readiness;
-  } catch {
-    return null;
-  }
-}
+export default function Home() {
+  const [ready, setReady] = useState<Readiness | null>(null);
+  const [failed, setFailed] = useState(false);
+  const [signedIn, setSignedIn] = useState(false);
 
-export default async function Home() {
-  const ready = await getReadiness();
+  useEffect(() => {
+    setSignedIn(Boolean(getToken()));
+    fetch(`${API_BASE}/readyz`)
+      .then((r) => r.json())
+      .then(setReady)
+      .catch(() => setFailed(true));
+  }, []);
 
   return (
-    <>
-      <h1 style={{ fontSize: 28, marginBottom: 8 }}>Secure AI Resume Screener</h1>
-      <p style={{ color: "#5d655e", marginTop: 0 }}>
-        M0 — foundations. Upload and ranking arrive in M2 and M6.
+    <div className="shell">
+      <div className="topbar">
+        <h1>Secure AI Resume Screener</h1>
+        <nav>
+          <Link href="/jobs">Jobs</Link>
+          <Link href="/login">{signedIn ? "Switch user" : "Sign in"}</Link>
+        </nav>
+      </div>
+
+      <p className="muted" style={{ maxWidth: "62ch" }}>
+        Resumes are redacted inside a worker with no network access before anything is embedded,
+        prompted, indexed or logged. Scores show every term, its weight, and whether a human or the
+        model produced it.
       </p>
 
-      <h2
-        style={{ fontSize: 15, marginTop: 32, textTransform: "uppercase", letterSpacing: ".08em" }}
-      >
-        System status
-      </h2>
-      {ready ? (
-        <dl
-          style={{
-            display: "grid",
-            gridTemplateColumns: "auto 1fr",
-            gap: "6px 20px",
-            fontSize: 14,
-          }}
-        >
-          <dt style={{ color: "#5d655e" }}>API</dt>
-          <dd style={{ margin: 0 }}>{ready.status}</dd>
-          <dt style={{ color: "#5d655e" }}>Database</dt>
-          <dd style={{ margin: 0 }}>{ready.database ?? "unknown"}</dd>
-          <dt style={{ color: "#5d655e" }}>pgvector</dt>
-          <dd style={{ margin: 0 }}>{ready.pgvector ?? "unknown"}</dd>
-        </dl>
-      ) : (
-        <p style={{ fontSize: 14, color: "#98302e" }}>
-          API unreachable at {API}. Start it with <code>make up</code>.
-        </p>
-      )}
-    </>
+      <div className="card">
+        <h2 style={{ fontSize: 14, margin: "0 0 12px", letterSpacing: "0.04em" }}>SYSTEM STATUS</h2>
+        {failed && (
+          <div className="error">
+            API unreachable at {API_BASE}. Start it with <code>make up</code>.
+          </div>
+        )}
+        {ready && (
+          <table>
+            <tbody>
+              <tr>
+                <td>API</td>
+                <td className="num">{ready.status}</td>
+              </tr>
+              <tr>
+                <td>Database</td>
+                <td className="num">{ready.database ?? "unknown"}</td>
+              </tr>
+              <tr>
+                <td>pgvector</td>
+                <td className="num">{ready.pgvector ?? "unknown"}</td>
+              </tr>
+            </tbody>
+          </table>
+        )}
+        {!ready && !failed && <p className="muted">Checking…</p>}
+      </div>
+
+      <p className="muted">
+        {signedIn ? (
+          <Link href="/jobs">Go to jobs →</Link>
+        ) : (
+          <Link href="/login">Sign in to continue →</Link>
+        )}
+      </p>
+    </div>
   );
 }

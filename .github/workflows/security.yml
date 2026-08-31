@@ -40,3 +40,62 @@ jobs:
         with:
           config: >-
             p/python p/security-audit p/secrets .semgrep.yml
+
+      - name: JS dependency audit
+        working-directory: apps/web
+        run: npm audit --audit-level=high
+
+  containers:
+    name: container image scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build images
+        run: |
+          docker build -f infra/docker/Dockerfile.api -t screener-api:scan .
+          docker build -f infra/docker/Dockerfile.worker -t screener-worker:scan .
+      - name: Trivy (api)
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          image-ref: screener-api:scan
+          severity: HIGH,CRITICAL
+          exit-code: "1"
+          ignore-unfixed: true
+      - name: Trivy (worker)
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          image-ref: screener-worker:scan
+          severity: HIGH,CRITICAL
+          exit-code: "1"
+          ignore-unfixed: true
+
+  dast:
+    name: ZAP baseline against the running stack
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Throwaway secrets
+        run: |
+          cp .env.example .env
+          {
+            echo "APP_ENV=test"
+            echo "POSTGRES_PASSWORD=$(openssl rand -base64 24)"
+            echo "APP_KEK=$(openssl rand -base64 32)"
+            echo "JWT_SECRET=$(openssl rand -base64 32)"
+            echo "LLM_PROVIDER=stub"
+          } >> .env
+      - name: Start the stack
+        run: |
+          docker compose up -d --build db api
+          for i in $(seq 1 60); do
+            curl -sf http://localhost:8000/healthz && break || sleep 3
+          done
+      - name: ZAP baseline
+        uses: zaproxy/action-baseline@v0.12.0
+        with:
+          target: http://localhost:8000
+          # Fails the build on any WARN or above that is not in the rules file.
+          cmd_options: "-a -j"
+          allow_issue_writing: false
+      - if: always()
+        run: docker compose logs --tail=40

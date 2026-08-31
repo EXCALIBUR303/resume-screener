@@ -79,6 +79,7 @@ upload ──▶ sniff + cap ──▶ quarantine ──▶ promote ──▶ en
 | **Ingestion** | PDF and DOCX, magic-byte sniffing, OCR fallback for scans, 18-case malicious-upload corpus |
 | **Privacy** | Four-layer redaction, pseudonymised so a recruiter still sees a person, AES-256-GCM envelope encryption, complete erasure |
 | **Ranking** | Deterministic skill/experience terms + hybrid retrieval + a capped model term, every contribution itemised |
+| **Web UI** | Sign-in, resume upload, role creation, ranked candidates, and an explanation drawer showing every term with who computed it |
 | **Interview copilot** | Questions grounded in verified gaps, with anchored rubrics; ungrounded or unlawful questions are rejected |
 | **Security** | Tamper-evident audit chain, tenant isolation proven against a live database, 40-case injection corpus |
 

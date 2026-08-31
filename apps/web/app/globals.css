@@ -1,0 +1,236 @@
+:root {
+  --ground: #f3f4f0;
+  --surface: #ffffff;
+  --surface-2: #eaece5;
+  --ink: #1a1e1b;
+  --ink-2: #3b423c;
+  --muted: #5d655e;
+  --faint: #868e86;
+  --rule: #dbdfd6;
+  --rule-strong: #c3c9bc;
+  --accent: #2e6b5b;
+  --accent-soft: #dceae3;
+  --accent-ink: #1e4a3e;
+  --warn: #9e5c12;
+  --warn-soft: #f6e9d5;
+  --danger: #98302e;
+  --danger-soft: #f6dedc;
+  --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --ground: #101310;
+    --surface: #181c18;
+    --surface-2: #1f241f;
+    --ink: #e5e8e1;
+    --ink-2: #cbd1c7;
+    --muted: #98a296;
+    --faint: #7c867b;
+    --rule: #2a2f29;
+    --rule-strong: #3a413a;
+    --accent: #63b79a;
+    --accent-soft: #1b2e28;
+    --accent-ink: #8fd3ba;
+    --warn: #d5a05c;
+    --warn-soft: #312616;
+    --danger: #d67b76;
+    --danger-soft: #2e1b1a;
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--ground);
+  color: var(--ink);
+  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  line-height: 1.55;
+}
+
+a {
+  color: var(--accent-ink);
+}
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.banner {
+  background: var(--warn-soft);
+  color: var(--warn);
+  padding: 8px 20px;
+  font-size: 13px;
+  border-bottom: 1px solid var(--rule);
+}
+
+.shell {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 28px 20px 80px;
+}
+
+.topbar {
+  display: flex;
+  align-items: baseline;
+  gap: 18px;
+  border-bottom: 1px solid var(--rule);
+  padding-bottom: 14px;
+  margin-bottom: 26px;
+}
+.topbar h1 {
+  font-size: 17px;
+  margin: 0;
+  letter-spacing: -0.01em;
+}
+.topbar nav {
+  display: flex;
+  gap: 14px;
+  font-size: 14px;
+  margin-left: auto;
+}
+.topbar a {
+  text-decoration: none;
+  color: var(--muted);
+}
+.topbar a:hover {
+  color: var(--ink);
+}
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--rule);
+  border-radius: 4px;
+  padding: 18px 20px;
+  margin-bottom: 14px;
+}
+
+label {
+  display: block;
+  font-size: 13px;
+  color: var(--muted);
+  margin-bottom: 5px;
+}
+input,
+textarea,
+select {
+  width: 100%;
+  padding: 9px 11px;
+  font: inherit;
+  font-size: 14px;
+  background: var(--surface);
+  color: var(--ink);
+  border: 1px solid var(--rule-strong);
+  border-radius: 3px;
+  margin-bottom: 14px;
+}
+textarea {
+  min-height: 96px;
+  resize: vertical;
+}
+
+button {
+  font: inherit;
+  font-size: 14px;
+  padding: 9px 16px;
+  border-radius: 3px;
+  border: 1px solid var(--accent);
+  background: var(--accent);
+  color: #fff;
+  cursor: pointer;
+}
+button.secondary {
+  background: transparent;
+  color: var(--accent-ink);
+}
+button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.muted {
+  color: var(--muted);
+  font-size: 13px;
+}
+.mono {
+  font-family: var(--mono);
+  font-size: 12px;
+}
+
+.chip {
+  display: inline-block;
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 2px 6px;
+  border-radius: 2px;
+  border: 1px solid var(--rule-strong);
+  color: var(--muted);
+  margin-right: 5px;
+}
+.chip.warn {
+  color: var(--warn);
+  border-color: var(--warn);
+  background: var(--warn-soft);
+}
+.chip.bad {
+  color: var(--danger);
+  border-color: var(--danger);
+  background: var(--danger-soft);
+}
+.chip.good {
+  color: var(--accent-ink);
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.score {
+  font-family: var(--mono);
+  font-size: 22px;
+  font-variant-numeric: tabular-nums;
+}
+
+table {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 13px;
+}
+th,
+td {
+  text-align: left;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--rule);
+}
+th {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--faint);
+  font-weight: 500;
+}
+td.num {
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.error {
+  background: var(--danger-soft);
+  color: var(--danger);
+  border: 1px solid var(--danger);
+  border-radius: 3px;
+  padding: 10px 14px;
+  font-size: 13px;
+  margin-bottom: 14px;
+}
+.empty {
+  color: var(--faint);
+  font-size: 14px;
+  padding: 28px 0;
+  text-align: center;
+}

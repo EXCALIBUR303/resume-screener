@@ -31,6 +31,10 @@ class Settings(BaseSettings):
     )
 
     app_env: Literal["dev", "test", "prod"] = "dev"
+    # Comma-separated in .env, parsed into a list by `cors_origins`. An
+    # explicit allowlist, never "*": a wildcard with credentials is invalid,
+    # and hands the API to any site the user happens to visit.
+    cors_allowed_origins: str = "http://localhost:3000,https://localhost"
     app_name: str = "resume-screener"
     log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR"] = "INFO"
 
@@ -97,6 +101,10 @@ class Settings(BaseSettings):
     # Deliberately a plain property, NOT a computed_field: a computed_field is
     # included in repr() and model_dump(), which would re-expose the password
     # that SecretStr exists to hide. Caught by test_secrets_do_not_leak_through_repr.
+    @property
+    def cors_origins(self) -> list[str]:
+        return [o.strip() for o in self.cors_allowed_origins.split(",") if o.strip()]
+
     @property
     def dsn(self) -> str:
         """The DSN the app actually connects with. Contains the password — never log it."""

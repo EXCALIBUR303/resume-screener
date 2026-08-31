@@ -111,3 +111,8 @@ eval: ## Run the evaluation harness against the golden set
 eval-baseline: eval ## Promote the latest run to the committed baseline
 	cp evals/reports/latest.json evals/baselines/v1.json
 	@echo "baseline updated - commit it with the change that caused it"
+
+.PHONY: load-test
+load-test: ## AC-12: p95 < 300ms on read endpoints at 50 VUs (needs k6)
+	@command -v k6 >/dev/null || { echo "k6 not installed: brew install k6"; exit 1; }
+	k6 run -e BASE=http://localhost:8000 -e TOKEN=$${TOKEN} tests/load/api_smoke.js
