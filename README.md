@@ -3,9 +3,12 @@
 A resume screening system that **redacts before it reasons**, scores with evidence it can
 prove, and survives a resume that tries to talk to the model.
 
-[![ci](https://img.shields.io/badge/tests-413%20passing-2E6B5B)](.github/workflows/ci.yml)
-[![security](https://img.shields.io/badge/bandit-0%20findings-2E6B5B)](.github/workflows/security.yml)
 [![license](https://img.shields.io/badge/license-Apache--2.0-2E6B5B)](LICENSE)
+
+> **Status.** 413 tests pass and every scanner is clean **locally**. These are static
+> badges, not CI status — the workflows in `.github/workflows/` have never executed,
+> because this repository has no remote yet. Replace this line with real badges once
+> it is pushed and a run goes green.
 
 > **Decision support only.** This is a portfolio and research project. It does not make hiring
 > decisions, it has not been audited for bias, it is not a compliant automated employment
