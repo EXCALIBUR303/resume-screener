@@ -13,7 +13,12 @@ RUN uv pip install --system --no-cache --require-hashes -r requirements.lock
 FROM base AS runtime
 # libmagic1: content sniffing by magic bytes (python-magic). Extension and
 # Content-Type are attacker-controlled; the sniff is the authority.
-RUN apt-get update && apt-get install -y --no-install-recommends libmagic1 \
+# `upgrade` as well as `install`: Trivy found libssl3t64 CVE-2026-14456 (HIGH)
+# in python:3.12-slim, already fixed upstream. Applying security updates at
+# build time closes it without waiting for the base image to be rebuilt.
+RUN apt-get update \
+ && apt-get upgrade -y --no-install-recommends \
+ && apt-get install -y --no-install-recommends libmagic1 \
  && rm -rf /var/lib/apt/lists/*
 # Non-root from the start. Adding it later means every volume permission is wrong.
 RUN useradd --create-home --uid 10001 appuser

@@ -24,5 +24,8 @@
   },
   "allowScripts": {
     "@biomejs/biome@1.9.4": true
+  },
+  "overrides": {
+    "postcss": "^8.5.23"
   }
 }

@@ -99,13 +99,24 @@ jobs:
           for i in $(seq 1 60); do
             curl -sf http://localhost:8000/healthz && break || sleep 3
           done
+      # The scanner directly, not zaproxy/action-baseline: the action's scan
+      # passed (FAIL-NEW 0, PASS 68) and then failed uploading its report through
+      # a removed artifact API. Same reasoning as gitleaks above — run the tool,
+      # not the wrapper, so a broken wrapper cannot fail a clean scan.
       - name: ZAP baseline
-        uses: zaproxy/action-baseline@v0.12.0
+        run: |
+          docker run --rm --network=host \
+            -v "$PWD:/zap/wrk/:rw" \
+            ghcr.io/zaproxy/zaproxy:stable \
+            zap-baseline.py -t http://localhost:8000 \
+              -c .zap/rules.tsv -a -j \
+              -r zap-report.html
+      - uses: actions/upload-artifact@v4
+        if: always()
         with:
-          target: http://localhost:8000
-          # Fails the build on any WARN or above that is not in the rules file.
-          rules_file_name: .zap/rules.tsv
-          cmd_options: "-a -j"
-          allow_issue_writing: false
+          name: zap-baseline-report
+          path: zap-report.html
+          if-no-files-found: ignore
+
       - if: always()
         run: docker compose logs --tail=40

@@ -12,7 +12,10 @@ FROM base AS runtime
 # tesseract-ocr: the OCR engine.  poppler-utils: pdftoppm, which rasterises PDFs
 # for OCR (chosen over PyMuPDF to keep the project off AGPL — see ADR-0002).
 # libmagic1: content sniffing.
-RUN apt-get update && apt-get install -y --no-install-recommends \
+# See Dockerfile.api: `upgrade` closes base-image CVEs Trivy gates on.
+RUN apt-get update \
+ && apt-get upgrade -y --no-install-recommends \
+ && apt-get install -y --no-install-recommends \
       tesseract-ocr tesseract-ocr-eng poppler-utils libmagic1 \
  && rm -rf /var/lib/apt/lists/*
 
