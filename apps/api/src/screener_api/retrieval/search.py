@@ -14,6 +14,7 @@ recall side; the security property never depended on it. See ADR-0011.
 
 from __future__ import annotations
 
+import re
 import uuid
 from dataclasses import dataclass
 
@@ -96,6 +97,79 @@ async def vector_search(
     ]
 
 
+# Words that carry no retrieval signal in a job description. Not a full stopword
+# list — Postgres's english config already strips those — just the recruiting
+# boilerplate that would otherwise dominate an OR query.
+_NOISE = frozenset(
+    {
+        "we",
+        "you",
+        "your",
+        "our",
+        "will",
+        "and",
+        "the",
+        "for",
+        "with",
+        "who",
+        "are",
+        "have",
+        "this",
+        "that",
+        "role",
+        "team",
+        "work",
+        "working",
+        "need",
+        "want",
+        "looking",
+        "join",
+        "help",
+        "build",
+        "building",
+        "own",
+        "owning",
+        "across",
+        "using",
+        "used",
+        "able",
+        "strong",
+        "good",
+        "great",
+        "experience",
+        "years",
+        "candidate",
+        "engineer",
+        "developer",
+        "company",
+        "business",
+        "product",
+    }
+)
+
+
+def to_or_query(text_value: str, *, max_terms: int = 30) -> str:
+    """Turn free text into a disjunctive websearch query.
+
+    `websearch_to_tsquery` ANDs bare terms, so passing a whole job description
+    demanded that a chunk contain EVERY word — and matched nothing at all. The
+    lexical half of hybrid search silently contributed zero on every query until
+    this was measured. Terms are OR'd instead, which is what ts_rank_cd is for.
+
+    Still parameterised: the OR-joined string goes to websearch_to_tsquery as a
+    bound value, which handles arbitrary input safely.
+    """
+    seen: list[str] = []
+    for raw in re.findall(r"[A-Za-z0-9+#.]{2,}", text_value.lower()):
+        token = raw.strip(".")
+        if len(token) < 3 or token in _NOISE or token in seen:
+            continue
+        seen.append(token)
+        if len(seen) >= max_terms:
+            break
+    return " or ".join(seen)
+
+
 async def lexical_search(
     session: AsyncSession,
     *,
@@ -125,7 +199,7 @@ async def lexical_search(
             ),
             {
                 "org": org_id,
-                "q": query,
+                "q": to_or_query(query),
                 "lim": limit,
                 "filter_resumes": bool(resume_ids),
                 "resume_ids": [str(r) for r in (resume_ids or [])],

@@ -25,6 +25,10 @@ PENALTIES: dict[str, float] = {
     "low_ocr_confidence": 0.10,
     "partially_supported": 0.15,
     "injection_suspected": 0.20,
+    # Named-but-never-demonstrated skills. Distinct from injection: stuffing
+    # carries no instruction language, so the detector never fires and this is
+    # the only thing standing between it and a free score (ADR-0014).
+    "keyword_stuffing": 0.15,
     "degraded": 0.10,
 }
 
@@ -49,6 +53,7 @@ class FusedScore:
     degraded: bool = False
     partially_supported: bool = False
     injection_suspected: bool = False
+    keyword_stuffing: bool = False
     hard_gate_failures: list[str] = field(default_factory=list)
 
     @property
@@ -113,6 +118,8 @@ def fuse_score(
         penalties["injection_suspected"] = PENALTIES["injection_suspected"]
     if low_ocr_confidence:
         penalties["low_ocr_confidence"] = PENALTIES["low_ocr_confidence"]
+    if deterministic.looks_stuffed:
+        penalties["keyword_stuffing"] = PENALTIES["keyword_stuffing"]
     if degraded:
         penalties["degraded"] = PENALTIES["degraded"]
 
@@ -125,5 +132,6 @@ def fuse_score(
         degraded=degraded,
         partially_supported=partially,
         injection_suspected=injection_suspected,
+        keyword_stuffing=deterministic.looks_stuffed,
         hard_gate_failures=list(deterministic.hard_gate_failures),
     )

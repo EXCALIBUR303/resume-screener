@@ -1,0 +1,866 @@
+{
+  "version": "v1",
+  "seed": 20260831,
+  "generated_by": "scripts/gen_synthetic.py",
+  "labels_are": "construction-derived, not human judgments (see evals/README.md)",
+  "jobs": [
+    {
+      "id": "jd_backend_senior",
+      "title": "Senior Backend Engineer",
+      "required": [
+        "Python",
+        "PostgreSQL",
+        "Kubernetes"
+      ],
+      "nice": [
+        "Redis",
+        "Docker"
+      ],
+      "min_years": 5,
+      "description": "Senior backend engineer to build and operate payment services. Python on PostgreSQL, deployed on Kubernetes, owning reliability."
+    },
+    {
+      "id": "jd_backend_junior",
+      "title": "Backend Engineer",
+      "required": [
+        "Python",
+        "PostgreSQL"
+      ],
+      "nice": [
+        "Docker"
+      ],
+      "min_years": 2,
+      "description": "Backend engineer to build APIs in Python against PostgreSQL. You will work on internal services and reporting tools."
+    },
+    {
+      "id": "jd_data_engineer",
+      "title": "Data Engineer",
+      "required": [
+        "Python",
+        "Spark",
+        "Airflow"
+      ],
+      "nice": [
+        "Snowflake"
+      ],
+      "min_years": 4,
+      "description": "Data engineer to build and own ETL pipelines with Airflow and Spark, loading a warehouse used across the business."
+    },
+    {
+      "id": "jd_ml_engineer",
+      "title": "Machine Learning Engineer",
+      "required": [
+        "Python",
+        "PyTorch",
+        "Machine Learning"
+      ],
+      "nice": [
+        "Kubernetes"
+      ],
+      "min_years": 4,
+      "description": "Machine learning engineer to train and serve ranking models in PyTorch, working on retrieval and embeddings."
+    },
+    {
+      "id": "jd_frontend",
+      "title": "Frontend Engineer",
+      "required": [
+        "React",
+        "TypeScript"
+      ],
+      "nice": [
+        "Figma"
+      ],
+      "min_years": 3,
+      "description": "Frontend engineer to build accessible interfaces in React and TypeScript, owning a component library."
+    },
+    {
+      "id": "jd_platform",
+      "title": "Platform Engineer",
+      "required": [
+        "Kubernetes",
+        "Terraform",
+        "Docker"
+      ],
+      "nice": [
+        "Prometheus"
+      ],
+      "min_years": 4,
+      "description": "Platform engineer to run Kubernetes, manage infrastructure as code in Terraform, and own CI/CD."
+    },
+    {
+      "id": "jd_sre",
+      "title": "Site Reliability Engineer",
+      "required": [
+        "Kubernetes",
+        "Prometheus",
+        "Linux"
+      ],
+      "nice": [
+        "Terraform"
+      ],
+      "min_years": 5,
+      "description": "SRE to own observability with Prometheus and Grafana, run incident response, and manage error budgets on Kubernetes."
+    },
+    {
+      "id": "jd_security",
+      "title": "Application Security Engineer",
+      "required": [
+        "Threat Modelling",
+        "SAST",
+        "Python"
+      ],
+      "nice": [
+        "Kubernetes"
+      ],
+      "min_years": 4,
+      "description": "Application security engineer to run threat modelling, own SAST and DAST pipelines, and review services against OWASP ASVS."
+    }
+  ],
+  "resumes": [
+    {
+      "resume_id": "syn_0000",
+      "name": "Lars Fabricated",
+      "skills": [
+        "Python",
+        "PostgreSQL",
+        "Kubernetes",
+        "Redis"
+      ],
+      "years": 7,
+      "seniority": "senior",
+      "archetype": "strong_fit",
+      "skills_in_projects": false,
+      "stuffed": [],
+      "text": "Lars Fabricated\nlars@example.com | +91 90000 00000\n\nSUMMARY\nSenior engineer with 7 years of experience.\n\nWORK EXPERIENCE\nSenior Engineer, Nowhere Ltd (2019-2026)\nBuilt and maintained services in Python, including async APIs and workers.\nDesigned PostgreSQL schemas and tuned queries under production load.\nRan workloads on Kubernetes, owning rollouts, probes and autoscaling.\nUsed Redis for caching and rate limiting in high-traffic paths.\n\nEDUCATION\nB.Tech Computer Science, Imaginary Institute, 2018\n\nTECHNICAL SKILLS\nPython, PostgreSQL, Kubernetes, Redis\n\nSYNTHETIC-DATA-DO-NOT-USE"
+    },
+    {
+      "resume_id": "syn_0001",
+      "name": "Tariq Fictional",
+      "skills": [
+        "Python",
+        "PostgreSQL",
+        "Kubernetes",
+        "Redis"
+      ],
+      "years": 8,
+      "seniority": "senior",
+      "archetype": "strong_fit",
+      "skills_in_projects": false,
+      "stuffed": [],
+      "text": "Tariq Fictional\ntariq@example.com | +91 90000 00000\n\nSUMMARY\nSenior engineer with 8 years of experience.\n\nWORK EXPERIENCE\nSenior Engineer, Example Works (2018-2026)\nBuilt and maintained services in Python, including async APIs and workers.\nDesigned PostgreSQL schemas and tuned queries under production load.\nRan workloads on Kubernetes, owning rollouts, probes and autoscaling.\nUsed Redis for caching and rate limiting in high-traffic paths.\n\nEDUCATION\nB.Tech Computer Science, Imaginary Institute, 2018\n\nTECHNICAL SKILLS\nPython, PostgreSQL, Kubernetes, Redis\n\nSYNTHETIC-DATA-DO-NOT-USE"
+    },
+    {
+      "resume_id": "syn_0002",
+      "name": "Kwame Sample",
+      "skills": [
+        "Python",
+        "PostgreSQL",
+        "Docker"
+      ],
+      "years": 6,
+      "seniority": "senior",
+      "archetype": "strong_fit",
+      "skills_in_projects": false,
+      "stuffed": [],
+      "text": "Kwame Sample\nkwame@example.com | +91 90000 00000\n\nSUMMARY\nSenior engineer with 6 years of experience.\n\nWORK EXPERIENCE\nSenior Engineer, Imaginary Group (2020-2026)\nBuilt and maintained services in Python, including async APIs and workers.\nDesigned PostgreSQL schemas and tuned queries under production load.\nContainerised services with Docker and maintained base images.\n\nEDUCATION\nB.Tech Computer Science, Imaginary Institute, 2018\n\nTECHNICAL SKILLS\nPython, PostgreSQL, Docker\n\nSYNTHETIC-DATA-DO-NOT-USE"
+    },
+    {
+      "resume_id": "syn_0003",
+      "name": "James Notreal",
+      "skills": [
+        "Python",
+        "PostgreSQL",
+        "Docker"
+      ],
+      "years": 6,
+      "seniority": "senior",
+      "archetype": "strong_fit",
+      "skills_in_projects": false,
+      "stuffed": [],
+      "text": "James Notreal\njames@example.com | +91 90000 00000\n\nSUMMARY\nSenior engineer with 6 years of experience.\n\nWORK EXPERIENCE\nSenior Engineer, Example Works (2020-2026)\nBuilt and maintained services in Python, including async APIs and workers.\nDesigned PostgreSQL schemas and tuned queries under production load.\nContainerised services with Docker and maintained base images.\n\nEDUCATION\nB.Tech Computer Science, Imaginary Institute, 2018\n\nTECHNICAL SKILLS\nPython, PostgreSQL, Docker\n\nSYNTHETIC-DATA-DO-NOT-USE"
+    },
+    {
+      "resume_id": "syn_0004",
+      "name": "Elena Madeup",
+      "skills": [
+        "Python",
+        "Spark",
+        "Airflow",
+        "Snowflake"
+      ],
+      "years": 7,
+      "seniority": "senior",
+      "archetype": "strong_fit",
+      "skills_in_projects": false,
+      "stuffed": [],
+      "text": "Elena Madeup\nelena@example.com | +91 90000 00000\n\nSUMMARY\nSenior engineer with 7 years of experience.\n\nWORK EXPERIENCE\nSenior Engineer, Placeholder Inc (2019-2026)\nBuilt and maintained services in Python, including async APIs and workers.\nWrote Spark jobs processing several terabytes per day.\nAuthored and operated Airflow DAGs for nightly pipelines.\nModelled warehouse tables in Snowflake for analytics consumers.\n\nEDUCATION\nB.Tech Computer Science, Imaginary Institute, 2018\n\nTECHNICAL SKILLS\nPython, Spark, Airflow, Snowflake\n\nSYNTHETIC-DATA-DO-NOT-USE"
+    },
+    {
+      "resume_id": "syn_0005",
+      "name": "Kenji Fabricated",
+      "skills": [
+        "Python",
+        "Spark",
+        "Airflow",
+        "Snowflake"
+      ],
+      "years": 8,
+      "seniority": "senior",
+      "archetype": "strong_fit",
+      "skills_in_projects": false,
+      "stuffed": [],
+      "text": "Kenji Fabricated\nkenji@example.com | +91 90000 00000\n\nSUMMARY\nSenior engineer with 8 years of experience.\n\nWORK EXPERIENCE\nSenior Engineer, Fictional Labs (2018-2026)\nBuilt and maintained services in Python, including async APIs and workers.\nWrote Spark jobs processing several terabytes per day.\nAuthored and operated Airflow DAGs for nightly pipelines.\nModelled warehouse tables in Snowflake for analytics consumers.\n\nEDUCATION\nB.Tech Computer Science, Imaginary Institute, 2018\n\nTECHNICAL SKILLS\nPython, Spark, Airflow, Snowflake\n\nSYNTHETIC-DATA-DO-NOT-USE"
+    },
+    {
+      "resume_id": "syn_0006",
+      "name": "Kenji Sample",
+      "skills": [
+        "Python",
+        "PyTorch",
+        "Machine Learning",
+        "Kubernetes"
+      ],
+      "years": 6,
+      "seniority": "senior",
+      "archetype": "strong_fit",
+      "skills_in_projects": false,
+      "stuffed": [],
+      "text": "Kenji Sample\nkenji@example.com | +91 90000 00000\n\nSUMMARY\nSenior engineer with 6 years of experience.\n\nWORK EXPERIENCE\nSenior Engineer, Nowhere Ltd (2020-2026)\nBuilt and maintained services in Python, including async APIs and workers.\nTrained ranking models in PyTorch and shipped them to production.\nOwned feature engineering, training and offline evaluation.\nRan workloads on Kubernetes, owning rollouts, probes and autoscaling.\n\nEDUCATION\nB.Tech Computer Science, Imaginary Institute, 2018\n\nTECHNICAL SKILLS\nPython, PyTorch, Machine Learning, Kubernetes\n\nSYNTHETIC-DATA-DO-NOT-USE"
+    },
+    {
+      "resume_id": "syn_0007",
+      "name": "Zoe Invented",
+      "skills": [
+        "Python",
+        "PyTorch",
+        "Machine Learning",
+        "Kubernetes"
+      ],
+      "years": 8,
+      "seniority": "senior",
+      "archetype": "strong_fit",
+      "skills_in_projects": false,
+      "stuffed": [],
+      "text": "Zoe Invented\nzoe@example.com | +91 90000 00000\n\nSUMMARY\nSenior engineer with 8 years of experience.\n\nWORK EXPERIENCE\nSenior Engineer, Imaginary Group (2018-2026)\nBuilt and maintained services in Python, including async APIs and workers.\nTrained ranking models in PyTorch and shipped them to production.\nOwned feature engineering, training and offline evaluation.\nRan workloads on Kubernetes, owning rollouts, probes and autoscaling.\n\nEDUCATION\nB.Tech Computer Science, Imaginary Institute, 2018\n\nTECHNICAL SKILLS\nPython, PyTorch, Machine Learning, Kubernetes\n\nSYNTHETIC-DATA-DO-NOT-USE"
+    },
+    {
+      "resume_id": "syn_0008",
+      "name": "Fatima Placeholder",
+      "skills": [
+        "React",
+        "TypeScript",
+        "Figma"
+      ],
+      "years": 4,
+      "seniority": "senior",
+      "archetype": "strong_fit",
+      "skills_in_projects": false,
+      "stuffed": [],
+      "text": "Fatima Placeholder\nfatima@example.com | +91 90000 00000\n\nSUMMARY\nSenior engineer with 4 years of experience.\n\nWORK EXPERIENCE\nSenior Engineer, Nowhere Ltd (2022-2026)\nBuilt accessible React components used across several products.\nMigrated a large codebase to TypeScript and enforced strict mode.\nWorked from Figma designs and maintained shared design tokens.\n\nEDUCATION\nB.Tech Computer Science, Imaginary Institute, 2018\n\nTECHNICAL SKILLS\nReact, TypeScript, Figma\n\nSYNTHETIC-DATA-DO-NOT-USE"
+    },
+    {
+      "resume_id": "syn_0009",
+      "name": "Sam Fictional",
+      "skills": [
+        "React",
+        "TypeScript",
+        "Figma"
+      ],
+      "years": 5,
+      "seniority": "senior",
+      "archetype": "strong_fit",
+      "skills_in_projects": false,
+      "stuffed": [],
+      "text": "Sam Fictional\nsam@example.com | +91 90000 00000\n\nSUMMARY\nSenior engineer with 5 years of experience.\n\nWORK EXPERIENCE\nSenior Engineer, Imaginary Group (2021-2026)\nBuilt accessible React components used across several products.\nMigrated a large codebase to TypeScript and enforced strict mode.\nWorked from Figma designs and maintained shared design tokens.\n\nEDUCATION\nB.Tech Computer Science, Imaginary Institute, 2018\n\nTECHNICAL SKILLS\nReact, TypeScript, Figma\n\nSYNTHETIC-DATA-DO-NOT-USE"
+    },
+    {
+      "resume_id": "syn_0010",
+      "name": "Mateo Fictional",
+      "skills": [
+        "Kubernetes",
+        "Terraform",
+        "Docker",
+        "Prometheus"
+      ],
+      "years": 8,
+      "seniority": "senior",
+      "archetype": "strong_fit",
+      "skills_in_projects": false,
+      "stuffed": [],
+      "text": "Mateo Fictional\nmateo@example.com | +91 90000 00000\n\nSUMMARY\nSenior engineer with 8 years of experience.\n\nWORK EXPERIENCE\nSenior Engineer, Invented Systems (2018-2026)\nRan workloads on Kubernetes, owning rollouts, probes and autoscaling.\nManaged infrastructure as code in Terraform across environments.\nContainerised services with Docker and maintained base images.\nInstrumented services with Prometheus metrics and wrote alerts.\n\nEDUCATION\nB.Tech Computer Science, Imaginary Institute, 2018\n\nTECHNICAL SKILLS\nKubernetes, Terraform, Docker, Prometheus\n\nSYNTHETIC-DATA-DO-NOT-USE"
+    },
+    {
+      "resume_id": "syn_0011",
+      "name": "Mateo Fabricated",
+      "skills": [
+        "Kubernetes",
+        "Terraform",
+        "Docker",
+        "Prometheus"
+      ],
+      "years": 7,
+      "seniority": "senior",
+      "archetype": "strong_fit",
+      "skills_in_projects": false,
+      "stuffed": [],
+      "text": "Mateo Fabricated\nmateo@example.com | +91 90000 00000\n\nSUMMARY\nSenior engineer with 7 years of experience.\n\nWORK EXPERIENCE\nSenior Engineer, Invented Systems (2019-2026)\nRan workloads on Kubernetes, owning rollouts, probes and autoscaling.\nManaged infrastructure as code in Terraform across environments.\nContainerised services with Docker and maintained base images.\nInstrumented services with Prometheus metrics and wrote alerts.\n\nEDUCATION\nB.Tech Computer Science, Imaginary Institute, 2018\n\nTECHNICAL SKILLS\nKubernetes, Terraform, Docker, Prometheus\n\nSYNTHETIC-DATA-DO-NOT-USE"
+    },
+    {
+      "resume_id": "syn_0012",
+      "name": "Tariq Fabricated",
+      "skills": [
+        "Kubernetes",
+        "Prometheus",
+        "Linux",
+        "Terraform"
+      ],
+      "years": 8,
+      "seniority": "senior",
+      "archetype": "strong_fit",
+      "skills_in_projects": false,
+      "stuffed": [],
+      "text": "Tariq Fabricated\ntariq@example.com | +91 90000 00000\n\nSUMMARY\nSenior engineer with 8 years of experience.\n\nWORK EXPERIENCE\nSenior Engineer, Notreal Technologies (2018-2026)\nRan workloads on Kubernetes, owning rollouts, probes and autoscaling.\nInstrumented services with Prometheus metrics and wrote alerts.\nDebugged Linux performance issues down to syscall level.\nManaged infrastructure as code in Terraform across environments.\n\nEDUCATION\nB.Tech Computer Science, Imaginary Institute, 2018\n\nTECHNICAL SKILLS\nKubernetes, Prometheus, Linux, Terraform\n\nSYNTHETIC-DATA-DO-NOT-USE"
+    },
+    {
+      "resume_id": "syn_0013",
+      "name": "Yuki Synthetic",
+      "skills": [
+        "Kubernetes",
+        "Prometheus",
+        "Linux",
+        "Terraform"
+      ],
+      "years": 7,
+      "seniority": "senior",
+      "archetype": "strong_fit",
+      "skills_in_projects": false,
+      "stuffed": [],
+      "text": "Yuki Synthetic\nyuki@example.com | +91 90000 00000\n\nSUMMARY\nSenior engineer with 7 years of experience.\n\nWORK EXPERIENCE\nSenior Engineer, Example Works (2019-2026)\nRan workloads on Kubernetes, owning rollouts, probes and autoscaling.\nInstrumented services with Prometheus metrics and wrote alerts.\nDebugged Linux performance issues down to syscall level.\nManaged infrastructure as code in Terraform across environments.\n\nEDUCATION\nB.Tech Computer Science, Imaginary Institute, 2018\n\nTECHNICAL SKILLS\nKubernetes, Prometheus, Linux, Terraform\n\nSYNTHETIC-DATA-DO-NOT-USE"
+    },
+    {
+      "resume_id": "syn_0014",
+      "name": "Sam Madeup",
+      "skills": [
+        "Threat Modelling",
+        "SAST",
+        "Python",
+        "Kubernetes"
+      ],
+      "years": 7,
+      "seniority": "senior",
+      "archetype": "strong_fit",
+      "skills_in_projects": false,
+      "stuffed": [],
+      "text": "Sam Madeup\nsam@example.com | +91 90000 00000\n\nSUMMARY\nSenior engineer with 7 years of experience.\n\nWORK EXPERIENCE\nSenior Engineer, Notreal Technologies (2019-2026)\nRan threat modelling sessions using a STRIDE-style method.\nOwned SAST and dependency scanning in CI, triaging findings.\nBuilt and maintained services in Python, including async APIs and workers.\nRan workloads on Kubernetes, owning rollouts, probes and autoscaling.\n\nEDUCATION\nB.Tech Computer Science, Imaginary Institute, 2018\n\nTECHNICAL SKILLS\nThreat Modelling, SAST, Python, Kubernetes\n\nSYNTHETIC-DATA-DO-NOT-USE"
+    },
+    {
+      "resume_id": "syn_0015",
+      "name": "Kenji Fictional",
+      "skills": [
+        "Threat Modelling",
+        "SAST",
+        "Python",
+        "Kubernetes"
+      ],
+      "years": 8,
+      "seniority": "senior",
+      "archetype": "strong_fit",
+      "skills_in_projects": false,
+      "stuffed": [],
+      "text": "Kenji Fictional\nkenji@example.com | +91 90000 00000\n\nSUMMARY\nSenior engineer with 8 years of experience.\n\nWORK EXPERIENCE\nSenior Engineer, Fictional Labs (2018-2026)\nRan threat modelling sessions using a STRIDE-style method.\nOwned SAST and dependency scanning in CI, triaging findings.\nBuilt and maintained services in Python, including async APIs and workers.\nRan workloads on Kubernetes, owning rollouts, probes and autoscaling.\n\nEDUCATION\nB.Tech Computer Science, Imaginary Institute, 2018\n\nTECHNICAL SKILLS\nThreat Modelling, SAST, Python, Kubernetes\n\nSYNTHETIC-DATA-DO-NOT-USE"
+    },
+    {
+      "resume_id": "syn_0016",
+      "name": "Aisha Example",
+      "skills": [
+        "Python",
+        "PostgreSQL",
+        "Kubernetes"
+      ],
+      "years": 2,
+      "seniority": "junior",
+      "archetype": "near_miss_experience",
+      "skills_in_projects": false,
+      "stuffed": [],
+      "text": "Aisha Example\naisha@example.com | +91 90000 00000\n\nSUMMARY\nJunior engineer with 2 years of experience.\n\nWORK EXPERIENCE\nJunior Engineer, Placeholder Inc (2024-2026)\nBuilt and maintained services in Python, including async APIs and workers.\nDesigned PostgreSQL schemas and tuned queries under production load.\nRan workloads on Kubernetes, owning rollouts, probes and autoscaling.\n\nEDUCATION\nB.Tech Computer Science, Imaginary Institute, 2018\n\nTECHNICAL SKILLS\nPython, PostgreSQL, Kubernetes\n\nSYNTHETIC-DATA-DO-NOT-USE"
+    },
+    {
+      "resume_id": "syn_0017",
+      "name": "Noor Notreal",
+      "skills": [
+        "Python",
+        "PostgreSQL"
+      ],
+      "years": 1,
+      "seniority": "junior",
+      "archetype": "near_miss_experience",
+      "skills_in_projects": false,
+      "stuffed": [],
+      "text": "Noor Notreal\nnoor@example.com | +91 90000 00000\n\nSUMMARY\nJunior engineer with 1 years of experience.\n\nWORK EXPERIENCE\nJunior Engineer, Imaginary Group (2025-2026)\nBuilt and maintained services in Python, including async APIs and workers.\nDesigned PostgreSQL schemas and tuned queries under production load.\n\nEDUCATION\nB.Tech Computer Science, Imaginary Institute, 2018\n\nTECHNICAL SKILLS\nPython, PostgreSQL\n\nSYNTHETIC-DATA-DO-NOT-USE"
+    },
+    {
+      "resume_id": "syn_0018",
+      "name": "James Placeholder",
+      "skills": [
+        "Python",
+        "Spark",
+        "Airflow"
+      ],
+      "years": 1,
+      "seniority": "junior",
+      "archetype": "near_miss_experience",
+      "skills_in_projects": false,
+      "stuffed": [],
+      "text": "James Placeholder\njames@example.com | +91 90000 00000\n\nSUMMARY\nJunior engineer with 1 years of experience.\n\nWORK EXPERIENCE\nJunior Engineer, Nowhere Ltd (2025-2026)\nBuilt and maintained services in Python, including async APIs and workers.\nWrote Spark jobs processing several terabytes per day.\nAuthored and operated Airflow DAGs for nightly pipelines.\n\nEDUCATION\nB.Tech Computer Science, Imaginary Institute, 2018\n\nTECHNICAL SKILLS\nPython, Spark, Airflow\n\nSYNTHETIC-DATA-DO-NOT-USE"
+    },
+    {
+      "resume_id": "syn_0019",
+      "name": "Sam Synthetic",
+      "skills": [
+        "Python",
+        "PyTorch",
+        "Machine Learning"
+      ],
+      "years": 1,
+      "seniority": "junior",
+      "archetype": "near_miss_experience",
+      "skills_in_projects": false,
+      "stuffed": [],
+      "text": "Sam Synthetic\nsam@example.com | +91 90000 00000\n\nSUMMARY\nJunior engineer with 1 years of experience.\n\nWORK EXPERIENCE\nJunior Engineer, Invented Systems (2025-2026)\nBuilt and maintained services in Python, including async APIs and workers.\nTrained ranking models in PyTorch and shipped them to production.\nOwned feature engineering, training and offline evaluation.\n\nEDUCATION\nB.Tech Computer Science, Imaginary Institute, 2018\n\nTECHNICAL SKILLS\nPython, PyTorch, Machine Learning\n\nSYNTHETIC-DATA-DO-NOT-USE"
+    },
+    {
+      "resume_id": "syn_0020",
+      "name": "Elena Invented",
+      "skills": [
+        "React",
+        "TypeScript"
+      ],
+      "years": 1,
+      "seniority": "junior",
+      "archetype": "near_miss_experience",
+      "skills_in_projects": false,
+      "stuffed": [],
+      "text": "Elena Invented\nelena@example.com | +91 90000 00000\n\nSUMMARY\nJunior engineer with 1 years of experience.\n\nWORK EXPERIENCE\nJunior Engineer, Fictional Labs (2025-2026)\nBuilt accessible React components used across several products.\nMigrated a large codebase to TypeScript and enforced strict mode.\n\nEDUCATION\nB.Tech Computer Science, Imaginary Institute, 2018\n\nTECHNICAL SKILLS\nReact, TypeScript\n\nSYNTHETIC-DATA-DO-NOT-USE"
+    },
+    {
+      "resume_id": "syn_0021",
+      "name": "Elena Fabricated",
+      "skills": [
+        "Kubernetes",
+        "Terraform",
+        "Docker"
+      ],
+      "years": 1,
+      "seniority": "junior",
+      "archetype": "near_miss_experience",
+      "skills_in_projects": false,
+      "stuffed": [],
+      "text": "Elena Fabricated\nelena@example.com | +91 90000 00000\n\nSUMMARY\nJunior engineer with 1 years of experience.\n\nWORK EXPERIENCE\nJunior Engineer, Nowhere Ltd (2025-2026)\nRan workloads on Kubernetes, owning rollouts, probes and autoscaling.\nManaged infrastructure as code in Terraform across environments.\nContainerised services with Docker and maintained base images.\n\nEDUCATION\nB.Tech Computer Science, Imaginary Institute, 2018\n\nTECHNICAL SKILLS\nKubernetes, Terraform, Docker\n\nSYNTHETIC-DATA-DO-NOT-USE"
+    },
+    {
+      "resume_id": "syn_0022",
+      "name": "Wei Madeup",
+      "skills": [
+        "Python",
+        "PostgreSQL"
+      ],
+      "years": 6,
+      "seniority": "mid",
+      "archetype": "partial_skills",
+      "skills_in_projects": false,
+      "stuffed": [],
+      "text": "Wei Madeup\nwei@example.com | +91 90000 00000\n\nSUMMARY\nMid engineer with 6 years of experience.\n\nWORK EXPERIENCE\nMid Engineer, Placeholder Inc (2020-2026)\nBuilt and maintained services in Python, including async APIs and workers.\nDesigned PostgreSQL schemas and tuned queries under production load.\n\nEDUCATION\nB.Tech Computer Science, Imaginary Institute, 2018\n\nTECHNICAL SKILLS\nPython, PostgreSQL\n\nSYNTHETIC-DATA-DO-NOT-USE"
+    },
+    {
+      "resume_id": "syn_0023",
+      "name": "Diego Imaginary",
+      "skills": [
+        "Python"
+      ],
+      "years": 3,
+      "seniority": "mid",
+      "archetype": "partial_skills",
+      "skills_in_projects": false,
+      "stuffed": [],
+      "text": "Diego Imaginary\ndiego@example.com | +91 90000 00000\n\nSUMMARY\nMid engineer with 3 years of experience.\n\nWORK EXPERIENCE\nMid Engineer, Example Works (2023-2026)\nBuilt and maintained services in Python, including async APIs and workers.\n\nEDUCATION\nB.Tech Computer Science, Imaginary Institute, 2018\n\nTECHNICAL SKILLS\nPython\n\nSYNTHETIC-DATA-DO-NOT-USE"
+    },
+    {
+      "resume_id": "syn_0024",
+      "name": "Kwame Placeholder",
+      "skills": [
+        "Python",
+        "Spark"
+      ],
+      "years": 5,
+      "seniority": "mid",
+      "archetype": "partial_skills",
+      "skills_in_projects": false,
+      "stuffed": [],
+      "text": "Kwame Placeholder\nkwame@example.com | +91 90000 00000\n\nSUMMARY\nMid engineer with 5 years of experience.\n\nWORK EXPERIENCE\nMid Engineer, Imaginary Group (2021-2026)\nBuilt and maintained services in Python, including async APIs and workers.\nWrote Spark jobs processing several terabytes per day.\n\nEDUCATION\nB.Tech Computer Science, Imaginary Institute, 2018\n\nTECHNICAL SKILLS\nPython, Spark\n\nSYNTHETIC-DATA-DO-NOT-USE"
+    },
+    {
+      "resume_id": "syn_0025",
+      "name": "Olga Fabricated",
+      "skills": [
+        "Python",
+        "PyTorch"
+      ],
+      "years": 5,
+      "seniority": "mid",
+      "archetype": "partial_skills",
+      "skills_in_projects": false,
+      "stuffed": [],
+      "text": "Olga Fabricated\nolga@example.com | +91 90000 00000\n\nSUMMARY\nMid engineer with 5 years of experience.\n\nWORK EXPERIENCE\nMid Engineer, Imaginary Group (2021-2026)\nBuilt and maintained services in Python, including async APIs and workers.\nTrained ranking models in PyTorch and shipped them to production.\n\nEDUCATION\nB.Tech Computer Science, Imaginary Institute, 2018\n\nTECHNICAL SKILLS\nPython, PyTorch\n\nSYNTHETIC-DATA-DO-NOT-USE"
+    },
+    {
+      "resume_id": "syn_0026",
+      "name": "Ingrid Invented",
+      "skills": [
+        "React"
+      ],
+      "years": 4,
+      "seniority": "mid",
+      "archetype": "partial_skills",
+      "skills_in_projects": false,
+      "stuffed": [],
+      "text": "Ingrid Invented\ningrid@example.com | +91 90000 00000\n\nSUMMARY\nMid engineer with 4 years of experience.\n\nWORK EXPERIENCE\nMid Engineer, Placeholder Inc (2022-2026)\nBuilt accessible React components used across several products.\n\nEDUCATION\nB.Tech Computer Science, Imaginary Institute, 2018\n\nTECHNICAL SKILLS\nReact\n\nSYNTHETIC-DATA-DO-NOT-USE"
+    },
+    {
+      "resume_id": "syn_0027",
+      "name": "Noor Imaginary",
+      "skills": [
+        "Kubernetes",
+        "Terraform"
+      ],
+      "years": 5,
+      "seniority": "mid",
+      "archetype": "partial_skills",
+      "skills_in_projects": false,
+      "stuffed": [],
+      "text": "Noor Imaginary\nnoor@example.com | +91 90000 00000\n\nSUMMARY\nMid engineer with 5 years of experience.\n\nWORK EXPERIENCE\nMid Engineer, Nowhere Ltd (2021-2026)\nRan workloads on Kubernetes, owning rollouts, probes and autoscaling.\nManaged infrastructure as code in Terraform across environments.\n\nEDUCATION\nB.Tech Computer Science, Imaginary Institute, 2018\n\nTECHNICAL SKILLS\nKubernetes, Terraform\n\nSYNTHETIC-DATA-DO-NOT-USE"
+    },
+    {
+      "resume_id": "syn_0028",
+      "name": "James Notreal",
+      "skills": [
+        "Python",
+        "PostgreSQL",
+        "Kubernetes"
+      ],
+      "years": 2,
+      "seniority": "junior",
+      "archetype": "career_changer",
+      "skills_in_projects": true,
+      "stuffed": [],
+      "text": "James Notreal\njames@example.com | +91 90000 00000\n\nSUMMARY\nJunior engineer with 2 years of experience.\n\nWORK EXPERIENCE\nSupport Analyst, Invented Systems (2024-2026)\nHandled tickets and reporting for internal teams.\n\nPROJECTS\nBuilt and maintained services in Python, including async APIs and workers.\nDesigned PostgreSQL schemas and tuned queries under production load.\nRan workloads on Kubernetes, owning rollouts, probes and autoscaling.\n\nEDUCATION\nB.Tech Computer Science, Imaginary Institute, 2018\n\nTECHNICAL SKILLS\nPython, PostgreSQL, Kubernetes\n\nSYNTHETIC-DATA-DO-NOT-USE"
+    },
+    {
+      "resume_id": "syn_0029",
+      "name": "Wei Synthetic",
+      "skills": [
+        "Python",
+        "PostgreSQL"
+      ],
+      "years": 2,
+      "seniority": "junior",
+      "archetype": "career_changer",
+      "skills_in_projects": true,
+      "stuffed": [],
+      "text": "Wei Synthetic\nwei@example.com | +91 90000 00000\n\nSUMMARY\nJunior engineer with 2 years of experience.\n\nWORK EXPERIENCE\nSupport Analyst, Fictional Labs (2024-2026)\nHandled tickets and reporting for internal teams.\n\nPROJECTS\nBuilt and maintained services in Python, including async APIs and workers.\nDesigned PostgreSQL schemas and tuned queries under production load.\n\nEDUCATION\nB.Tech Computer Science, Imaginary Institute, 2018\n\nTECHNICAL SKILLS\nPython, PostgreSQL\n\nSYNTHETIC-DATA-DO-NOT-USE"
+    },
+    {
+      "resume_id": "syn_0030",
+      "name": "Kwame Placeholder",
+      "skills": [
+        "Python",
+        "Spark",
+        "Airflow"
+      ],
+      "years": 2,
+      "seniority": "junior",
+      "archetype": "career_changer",
+      "skills_in_projects": true,
+      "stuffed": [],
+      "text": "Kwame Placeholder\nkwame@example.com | +91 90000 00000\n\nSUMMARY\nJunior engineer with 2 years of experience.\n\nWORK EXPERIENCE\nSupport Analyst, Invented Systems (2024-2026)\nHandled tickets and reporting for internal teams.\n\nPROJECTS\nBuilt and maintained services in Python, including async APIs and workers.\nWrote Spark jobs processing several terabytes per day.\nAuthored and operated Airflow DAGs for nightly pipelines.\n\nEDUCATION\nB.Tech Computer Science, Imaginary Institute, 2018\n\nTECHNICAL SKILLS\nPython, Spark, Airflow\n\nSYNTHETIC-DATA-DO-NOT-USE"
+    },
+    {
+      "resume_id": "syn_0031",
+      "name": "Diego Fictional",
+      "skills": [
+        "Python",
+        "PyTorch",
+        "Machine Learning"
+      ],
+      "years": 2,
+      "seniority": "junior",
+      "archetype": "career_changer",
+      "skills_in_projects": true,
+      "stuffed": [],
+      "text": "Diego Fictional\ndiego@example.com | +91 90000 00000\n\nSUMMARY\nJunior engineer with 2 years of experience.\n\nWORK EXPERIENCE\nSupport Analyst, Imaginary Group (2024-2026)\nHandled tickets and reporting for internal teams.\n\nPROJECTS\nBuilt and maintained services in Python, including async APIs and workers.\nTrained ranking models in PyTorch and shipped them to production.\nOwned feature engineering, training and offline evaluation.\n\nEDUCATION\nB.Tech Computer Science, Imaginary Institute, 2018\n\nTECHNICAL SKILLS\nPython, PyTorch, Machine Learning\n\nSYNTHETIC-DATA-DO-NOT-USE"
+    },
+    {
+      "resume_id": "syn_0032",
+      "name": "Elena Sample",
+      "skills": [
+        "React",
+        "TypeScript"
+      ],
+      "years": 2,
+      "seniority": "junior",
+      "archetype": "career_changer",
+      "skills_in_projects": true,
+      "stuffed": [],
+      "text": "Elena Sample\nelena@example.com | +91 90000 00000\n\nSUMMARY\nJunior engineer with 2 years of experience.\n\nWORK EXPERIENCE\nSupport Analyst, Example Works (2024-2026)\nHandled tickets and reporting for internal teams.\n\nPROJECTS\nBuilt accessible React components used across several products.\nMigrated a large codebase to TypeScript and enforced strict mode.\n\nEDUCATION\nB.Tech Computer Science, Imaginary Institute, 2018\n\nTECHNICAL SKILLS\nReact, TypeScript\n\nSYNTHETIC-DATA-DO-NOT-USE"
+    },
+    {
+      "resume_id": "syn_0033",
+      "name": "Priya Synthetic",
+      "skills": [],
+      "years": 1,
+      "seniority": "junior",
+      "archetype": "keyword_stuffed",
+      "skills_in_projects": false,
+      "stuffed": [
+        "Python",
+        "PostgreSQL",
+        "Kubernetes"
+      ],
+      "text": "Priya Synthetic\npriya@example.com | +91 90000 00000\n\nSUMMARY\nJunior engineer with 1 years of experience.\n\nWORK EXPERIENCE\nJunior Engineer, Fictional Labs (2025-2026)\n\nEDUCATION\nB.Tech Computer Science, Imaginary Institute, 2018\n\nTECHNICAL SKILLS\nPython, PostgreSQL, Kubernetes\n\nSYNTHETIC-DATA-DO-NOT-USE"
+    },
+    {
+      "resume_id": "syn_0034",
+      "name": "Priya Placeholder",
+      "skills": [],
+      "years": 1,
+      "seniority": "junior",
+      "archetype": "keyword_stuffed",
+      "skills_in_projects": false,
+      "stuffed": [
+        "Python",
+        "PostgreSQL"
+      ],
+      "text": "Priya Placeholder\npriya@example.com | +91 90000 00000\n\nSUMMARY\nJunior engineer with 1 years of experience.\n\nWORK EXPERIENCE\nJunior Engineer, Fictional Labs (2025-2026)\n\nEDUCATION\nB.Tech Computer Science, Imaginary Institute, 2018\n\nTECHNICAL SKILLS\nPython, PostgreSQL\n\nSYNTHETIC-DATA-DO-NOT-USE"
+    },
+    {
+      "resume_id": "syn_0035",
+      "name": "Wei Madeup",
+      "skills": [],
+      "years": 1,
+      "seniority": "junior",
+      "archetype": "keyword_stuffed",
+      "skills_in_projects": false,
+      "stuffed": [
+        "Python",
+        "Spark",
+        "Airflow"
+      ],
+      "text": "Wei Madeup\nwei@example.com | +91 90000 00000\n\nSUMMARY\nJunior engineer with 1 years of experience.\n\nWORK EXPERIENCE\nJunior Engineer, Nowhere Ltd (2025-2026)\n\nEDUCATION\nB.Tech Computer Science, Imaginary Institute, 2018\n\nTECHNICAL SKILLS\nPython, Spark, Airflow\n\nSYNTHETIC-DATA-DO-NOT-USE"
+    },
+    {
+      "resume_id": "syn_0036",
+      "name": "Kwame Imaginary",
+      "skills": [],
+      "years": 1,
+      "seniority": "junior",
+      "archetype": "keyword_stuffed",
+      "skills_in_projects": false,
+      "stuffed": [
+        "Python",
+        "PyTorch",
+        "Machine Learning"
+      ],
+      "text": "Kwame Imaginary\nkwame@example.com | +91 90000 00000\n\nSUMMARY\nJunior engineer with 1 years of experience.\n\nWORK EXPERIENCE\nJunior Engineer, Imaginary Group (2025-2026)\n\nEDUCATION\nB.Tech Computer Science, Imaginary Institute, 2018\n\nTECHNICAL SKILLS\nPython, PyTorch, Machine Learning\n\nSYNTHETIC-DATA-DO-NOT-USE"
+    },
+    {
+      "resume_id": "syn_0037",
+      "name": "Ingrid Imaginary",
+      "skills": [],
+      "years": 1,
+      "seniority": "junior",
+      "archetype": "keyword_stuffed",
+      "skills_in_projects": false,
+      "stuffed": [
+        "React",
+        "TypeScript"
+      ],
+      "text": "Ingrid Imaginary\ningrid@example.com | +91 90000 00000\n\nSUMMARY\nJunior engineer with 1 years of experience.\n\nWORK EXPERIENCE\nJunior Engineer, Fictional Labs (2025-2026)\n\nEDUCATION\nB.Tech Computer Science, Imaginary Institute, 2018\n\nTECHNICAL SKILLS\nReact, TypeScript\n\nSYNTHETIC-DATA-DO-NOT-USE"
+    },
+    {
+      "resume_id": "syn_0038",
+      "name": "Kenji Placeholder",
+      "skills": [
+        "Python",
+        "PostgreSQL",
+        "Kubernetes",
+        "Redis",
+        "Docker"
+      ],
+      "years": 17,
+      "seniority": "principal",
+      "archetype": "overqualified",
+      "skills_in_projects": false,
+      "stuffed": [],
+      "text": "Kenji Placeholder\nkenji@example.com | +91 90000 00000\n\nSUMMARY\nPrincipal engineer with 17 years of experience.\n\nWORK EXPERIENCE\nPrincipal Engineer, Example Works (2009-2026)\nBuilt and maintained services in Python, including async APIs and workers.\nDesigned PostgreSQL schemas and tuned queries under production load.\nRan workloads on Kubernetes, owning rollouts, probes and autoscaling.\nUsed Redis for caching and rate limiting in high-traffic paths.\nContainerised services with Docker and maintained base images.\n\nEDUCATION\nB.Tech Computer Science, Imaginary Institute, 2018\n\nTECHNICAL SKILLS\nPython, PostgreSQL, Kubernetes, Redis, Docker\n\nSYNTHETIC-DATA-DO-NOT-USE"
+    },
+    {
+      "resume_id": "syn_0039",
+      "name": "Elena Notreal",
+      "skills": [
+        "Python",
+        "PostgreSQL",
+        "Docker"
+      ],
+      "years": 14,
+      "seniority": "principal",
+      "archetype": "overqualified",
+      "skills_in_projects": false,
+      "stuffed": [],
+      "text": "Elena Notreal\nelena@example.com | +91 90000 00000\n\nSUMMARY\nPrincipal engineer with 14 years of experience.\n\nWORK EXPERIENCE\nPrincipal Engineer, Notreal Technologies (2012-2026)\nBuilt and maintained services in Python, including async APIs and workers.\nDesigned PostgreSQL schemas and tuned queries under production load.\nContainerised services with Docker and maintained base images.\n\nEDUCATION\nB.Tech Computer Science, Imaginary Institute, 2018\n\nTECHNICAL SKILLS\nPython, PostgreSQL, Docker\n\nSYNTHETIC-DATA-DO-NOT-USE"
+    },
+    {
+      "resume_id": "syn_0040",
+      "name": "James Imaginary",
+      "skills": [
+        "Python",
+        "Spark",
+        "Airflow",
+        "Snowflake"
+      ],
+      "years": 16,
+      "seniority": "principal",
+      "archetype": "overqualified",
+      "skills_in_projects": false,
+      "stuffed": [],
+      "text": "James Imaginary\njames@example.com | +91 90000 00000\n\nSUMMARY\nPrincipal engineer with 16 years of experience.\n\nWORK EXPERIENCE\nPrincipal Engineer, Placeholder Inc (2010-2026)\nBuilt and maintained services in Python, including async APIs and workers.\nWrote Spark jobs processing several terabytes per day.\nAuthored and operated Airflow DAGs for nightly pipelines.\nModelled warehouse tables in Snowflake for analytics consumers.\n\nEDUCATION\nB.Tech Computer Science, Imaginary Institute, 2018\n\nTECHNICAL SKILLS\nPython, Spark, Airflow, Snowflake\n\nSYNTHETIC-DATA-DO-NOT-USE"
+    },
+    {
+      "resume_id": "syn_0041",
+      "name": "Fatima Fictional",
+      "skills": [
+        "React",
+        "TypeScript",
+        "Figma"
+      ],
+      "years": 8,
+      "seniority": "mid",
+      "archetype": "unrelated",
+      "skills_in_projects": false,
+      "stuffed": [],
+      "text": "Fatima Fictional\nfatima@example.com | +91 90000 00000\n\nSUMMARY\nMid engineer with 8 years of experience.\n\nWORK EXPERIENCE\nMid Engineer, Example Works (2018-2026)\nBuilt accessible React components used across several products.\nMigrated a large codebase to TypeScript and enforced strict mode.\nWorked from Figma designs and maintained shared design tokens.\n\nEDUCATION\nB.Tech Computer Science, Imaginary Institute, 2018\n\nTECHNICAL SKILLS\nReact, TypeScript, Figma\n\nSYNTHETIC-DATA-DO-NOT-USE"
+    },
+    {
+      "resume_id": "syn_0042",
+      "name": "Yuki Sample",
+      "skills": [
+        "Spark",
+        "Airflow",
+        "Snowflake"
+      ],
+      "years": 8,
+      "seniority": "mid",
+      "archetype": "unrelated",
+      "skills_in_projects": false,
+      "stuffed": [],
+      "text": "Yuki Sample\nyuki@example.com | +91 90000 00000\n\nSUMMARY\nMid engineer with 8 years of experience.\n\nWORK EXPERIENCE\nMid Engineer, Imaginary Group (2018-2026)\nWrote Spark jobs processing several terabytes per day.\nAuthored and operated Airflow DAGs for nightly pipelines.\nModelled warehouse tables in Snowflake for analytics consumers.\n\nEDUCATION\nB.Tech Computer Science, Imaginary Institute, 2018\n\nTECHNICAL SKILLS\nSpark, Airflow, Snowflake\n\nSYNTHETIC-DATA-DO-NOT-USE"
+    },
+    {
+      "resume_id": "syn_0043",
+      "name": "Olga Fictional",
+      "skills": [
+        "Threat Modelling",
+        "SAST"
+      ],
+      "years": 6,
+      "seniority": "mid",
+      "archetype": "unrelated",
+      "skills_in_projects": false,
+      "stuffed": [],
+      "text": "Olga Fictional\nolga@example.com | +91 90000 00000\n\nSUMMARY\nMid engineer with 6 years of experience.\n\nWORK EXPERIENCE\nMid Engineer, Example Works (2020-2026)\nRan threat modelling sessions using a STRIDE-style method.\nOwned SAST and dependency scanning in CI, triaging findings.\n\nEDUCATION\nB.Tech Computer Science, Imaginary Institute, 2018\n\nTECHNICAL SKILLS\nThreat Modelling, SAST\n\nSYNTHETIC-DATA-DO-NOT-USE"
+    },
+    {
+      "resume_id": "syn_0044",
+      "name": "Lars Placeholder",
+      "skills": [
+        "PyTorch",
+        "Machine Learning"
+      ],
+      "years": 6,
+      "seniority": "mid",
+      "archetype": "unrelated",
+      "skills_in_projects": false,
+      "stuffed": [],
+      "text": "Lars Placeholder\nlars@example.com | +91 90000 00000\n\nSUMMARY\nMid engineer with 6 years of experience.\n\nWORK EXPERIENCE\nMid Engineer, Placeholder Inc (2020-2026)\nTrained ranking models in PyTorch and shipped them to production.\nOwned feature engineering, training and offline evaluation.\n\nEDUCATION\nB.Tech Computer Science, Imaginary Institute, 2018\n\nTECHNICAL SKILLS\nPyTorch, Machine Learning\n\nSYNTHETIC-DATA-DO-NOT-USE"
+    },
+    {
+      "resume_id": "syn_0045",
+      "name": "James Notreal",
+      "skills": [
+        "Terraform",
+        "Prometheus",
+        "Linux"
+      ],
+      "years": 4,
+      "seniority": "mid",
+      "archetype": "unrelated",
+      "skills_in_projects": false,
+      "stuffed": [],
+      "text": "James Notreal\njames@example.com | +91 90000 00000\n\nSUMMARY\nMid engineer with 4 years of experience.\n\nWORK EXPERIENCE\nMid Engineer, Nowhere Ltd (2022-2026)\nManaged infrastructure as code in Terraform across environments.\nInstrumented services with Prometheus metrics and wrote alerts.\nDebugged Linux performance issues down to syscall level.\n\nEDUCATION\nB.Tech Computer Science, Imaginary Institute, 2018\n\nTECHNICAL SKILLS\nTerraform, Prometheus, Linux\n\nSYNTHETIC-DATA-DO-NOT-USE"
+    },
+    {
+      "resume_id": "syn_0046",
+      "name": "Aisha Fictional",
+      "skills": [
+        "Python",
+        "Docker"
+      ],
+      "years": 8,
+      "seniority": "mid",
+      "archetype": "unrelated",
+      "skills_in_projects": false,
+      "stuffed": [],
+      "text": "Aisha Fictional\naisha@example.com | +91 90000 00000\n\nSUMMARY\nMid engineer with 8 years of experience.\n\nWORK EXPERIENCE\nMid Engineer, Invented Systems (2018-2026)\nBuilt and maintained services in Python, including async APIs and workers.\nContainerised services with Docker and maintained base images.\n\nEDUCATION\nB.Tech Computer Science, Imaginary Institute, 2018\n\nTECHNICAL SKILLS\nPython, Docker\n\nSYNTHETIC-DATA-DO-NOT-USE"
+    },
+    {
+      "resume_id": "syn_0047",
+      "name": "Yuki Fabricated",
+      "skills": [
+        "React",
+        "Figma"
+      ],
+      "years": 3,
+      "seniority": "mid",
+      "archetype": "unrelated",
+      "skills_in_projects": false,
+      "stuffed": [],
+      "text": "Yuki Fabricated\nyuki@example.com | +91 90000 00000\n\nSUMMARY\nMid engineer with 3 years of experience.\n\nWORK EXPERIENCE\nMid Engineer, Invented Systems (2023-2026)\nBuilt accessible React components used across several products.\nWorked from Figma designs and maintained shared design tokens.\n\nEDUCATION\nB.Tech Computer Science, Imaginary Institute, 2018\n\nTECHNICAL SKILLS\nReact, Figma\n\nSYNTHETIC-DATA-DO-NOT-USE"
+    },
+    {
+      "resume_id": "syn_0048",
+      "name": "Ingrid Example",
+      "skills": [
+        "Snowflake",
+        "Airflow"
+      ],
+      "years": 6,
+      "seniority": "mid",
+      "archetype": "unrelated",
+      "skills_in_projects": false,
+      "stuffed": [],
+      "text": "Ingrid Example\ningrid@example.com | +91 90000 00000\n\nSUMMARY\nMid engineer with 6 years of experience.\n\nWORK EXPERIENCE\nMid Engineer, Imaginary Group (2020-2026)\nModelled warehouse tables in Snowflake for analytics consumers.\nAuthored and operated Airflow DAGs for nightly pipelines.\n\nEDUCATION\nB.Tech Computer Science, Imaginary Institute, 2018\n\nTECHNICAL SKILLS\nSnowflake, Airflow\n\nSYNTHETIC-DATA-DO-NOT-USE"
+    },
+    {
+      "resume_id": "syn_0049",
+      "name": "Olga Fabricated",
+      "skills": [
+        "Linux",
+        "Docker"
+      ],
+      "years": 4,
+      "seniority": "mid",
+      "archetype": "unrelated",
+      "skills_in_projects": false,
+      "stuffed": [],
+      "text": "Olga Fabricated\nolga@example.com | +91 90000 00000\n\nSUMMARY\nMid engineer with 4 years of experience.\n\nWORK EXPERIENCE\nMid Engineer, Example Works (2022-2026)\nDebugged Linux performance issues down to syscall level.\nContainerised services with Docker and maintained base images.\n\nEDUCATION\nB.Tech Computer Science, Imaginary Institute, 2018\n\nTECHNICAL SKILLS\nLinux, Docker\n\nSYNTHETIC-DATA-DO-NOT-USE"
+    }
+  ]
+}

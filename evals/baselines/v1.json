@@ -1,0 +1,30 @@
+{
+  "corpus_version": "v1",
+  "resumes": 50,
+  "jobs": 8,
+  "pairs": 400,
+  "labels_are": "construction-derived, not human judgments (see evals/README.md)",
+  "retrievers": {
+    "vector": {
+      "name": "vector",
+      "ndcg10": 0.8121,
+      "p5": 0.55,
+      "recall20": 0.975,
+      "mrr": 0.7917
+    },
+    "lexical": {
+      "name": "lexical",
+      "ndcg10": 0.9153,
+      "p5": 0.675,
+      "recall20": 1.0,
+      "mrr": 0.9167
+    },
+    "hybrid": {
+      "name": "hybrid",
+      "ndcg10": 0.9068,
+      "p5": 0.65,
+      "recall20": 1.0,
+      "mrr": 1.0
+    }
+  }
+}

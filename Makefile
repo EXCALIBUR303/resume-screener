@@ -98,3 +98,16 @@ verify-audit: ## Walk the audit hash chain and report any break
 .PHONY: redact-demo
 redact-demo: ## Show a resume before and after redaction (the README headline)
 	POSTGRES_HOST=localhost POSTGRES_PORT=5433 $(VENV)/python scripts/redaction_demo.py
+
+.PHONY: eval-data
+eval-data: ## Regenerate the golden corpus from its fixed seed
+	$(VENV)/python scripts/gen_synthetic.py
+
+.PHONY: eval
+eval: ## Run the evaluation harness against the golden set
+	POSTGRES_HOST=localhost POSTGRES_PORT=5433 $(VENV)/python evals/harness.py
+
+.PHONY: eval-baseline
+eval-baseline: eval ## Promote the latest run to the committed baseline
+	cp evals/reports/latest.json evals/baselines/v1.json
+	@echo "baseline updated - commit it with the change that caused it"

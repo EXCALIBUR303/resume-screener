@@ -49,8 +49,9 @@ _PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
     (
         "score_demand",
         re.compile(
-            r"\b(?:rate|score|rank|grade)\b[^.\n]{0,30}\b(?:10/10|100%|perfect|highest|"
-            r"maximum|top)\b|\b(?:perfect|ideal|flawless)\s+(?:match|candidate|fit)\b",
+            r"\b(?:rate|score|rank|grade)\b[^.\n]{0,30}"
+            r"(?:10/10|100\s*%|\bperfect\b|\bhighest\b|\bmaximum\b|\btop\b)"
+            r"|\b(?:perfect|ideal|flawless)\s+(?:match|candidate|fit)\b",
             re.I,
         ),
     ),

@@ -13,6 +13,8 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass, field
 
+from screener_api.privacy.recognizers import NEVER_REDACT
+
 # Aliases so "Postgres" and "PostgreSQL" are one skill. A committed table rather
 # than a fuzzy match: reviewable, testable, and it cannot drift silently.
 ALIASES: dict[str, str] = {
@@ -125,6 +127,111 @@ def estimate_years(text: str) -> float:
     return float(max(explicit, spans))
 
 
+# A skills list is weak evidence; a sentence describing the work is strong.
+# Below this word count a line is an enumeration, not a claim with substance.
+SUPPORTING_LINE_WORDS = 8
+# Words that assert competence without describing any work. "Expert in
+# Kubernetes. Expert in PostgreSQL." is nine words with low technology density,
+# so a density test alone accepted it as evidence. Evidence says what you DID.
+_CLAIM_FILLER = frozenset(
+    {
+        "expert",
+        "expertise",
+        "proficient",
+        "proficiency",
+        "skilled",
+        "skills",
+        "experienced",
+        "experience",
+        "knowledge",
+        "knowledgeable",
+        "familiar",
+        "familiarity",
+        "strong",
+        "solid",
+        "excellent",
+        "advanced",
+        "in",
+        "with",
+        "of",
+        "and",
+        "or",
+        "the",
+        "a",
+        "an",
+        "at",
+        "on",
+        "for",
+        "to",
+        "years",
+        "technologies",
+        "technology",
+        "stack",
+        "tools",
+        "keywords",
+        "including",
+    }
+)
+# A line needs at least this many words that are neither technology names nor
+# competence-claim filler before it counts as describing real work.
+MIN_SUBSTANTIVE_WORDS = 3
+# What a skill is worth when it is only named, never demonstrated. Not zero:
+# listing a skill is a real (if weak) signal, and a resume that lists honestly
+# should not be treated as an attack.
+NAMED_ONLY_CREDIT = 0.35
+# Above this share of named-but-unevidenced skills, the document looks stuffed.
+STUFFING_RATIO = 0.6
+
+
+def _supporting_lines(text: str) -> list[str]:
+    """Lines with enough substance to count as evidence rather than enumeration."""
+    out: list[str] = []
+    for line in text.split("\n"):
+        words = line.split()
+        if len(words) < SUPPORTING_LINE_WORDS:
+            continue
+        # A long comma-separated list is still a list.
+        if line.count(",") >= max(3, len(words) // 3):
+            continue
+        # So is a space-separated one. "Proficient: Kubernetes PostgreSQL Python
+        # Docker Redis Kafka Terraform" is eight words and no commas, so a
+        # word-count test called it a sentence. A line whose tokens are mostly
+        # technology names is an enumeration whatever separates them.
+        tokens = [w.strip(".,;:()").lower() for w in words]
+        meaningful = [t for t in tokens if len(t) > 1]
+        if meaningful:
+            tech = sum(1 for t in meaningful if t in NEVER_REDACT)
+            if tech / len(meaningful) >= 0.5:
+                continue
+        substantive = [t for t in meaningful if t not in NEVER_REDACT and t not in _CLAIM_FILLER]
+        if len(substantive) < MIN_SUBSTANTIVE_WORDS:
+            continue
+        out.append(line.lower())
+    return out
+
+
+def skill_support(text: str, skills: set[str]) -> dict[str, bool]:
+    """Which skills appear in a sentence with substance, not just a list.
+
+    Bare substring matching credited "Kubernetes Kubernetes Kubernetes" exactly
+    as much as "Ran workloads on Kubernetes, owning rollouts and autoscaling".
+    All six keyword-stuffing cases in the AC-9 corpus raised the score because of
+    it, undetected — stuffing carries no instruction language, so sanitisation
+    never fires. See ADR-0014.
+    """
+    supporting = _supporting_lines(text)
+    result: dict[str, bool] = {}
+    for skill in skills:
+        needle = canonical(skill)
+        aliases = {needle} | {a for a, t in ALIASES.items() if t == needle}
+        result[skill] = any(
+            re.search(rf"(?<![a-z0-9]){re.escape(a)}(?![a-z0-9])", line)
+            for line in supporting
+            for a in aliases
+        )
+    return result
+
+
 @dataclass
 class DeterministicScore:
     skill_score: float
@@ -134,6 +241,9 @@ class DeterministicScore:
     years_found: float = 0.0
     years_required: float = 0.0
     hard_gate_failures: list[str] = field(default_factory=list)
+    evidenced_skills: set[str] = field(default_factory=set)
+    named_only_skills: set[str] = field(default_factory=set)
+    looks_stuffed: bool = False
 
     @property
     def passes_hard_gates(self) -> bool:
@@ -155,10 +265,19 @@ def score_deterministic(
     matched_required = present & required
     matched_optional = present & optional
 
+    # A named skill is worth less than a demonstrated one. This is what stops
+    # keyword stuffing from paying, and it needs no detector to fire.
+    support = skill_support(resume_text, matched_required | matched_optional)
+    evidenced = {s for s, ok in support.items() if ok}
+    named_only = (matched_required | matched_optional) - evidenced
+
+    def credit(skills: set[str]) -> float:
+        return sum(1.0 if s in evidenced else NAMED_ONLY_CREDIT for s in skills)
+
     # Required skills carry full weight; nice-to-haves add a capped bonus so a
     # candidate cannot compensate for missing essentials with extras.
-    base = len(matched_required) / len(required) if required else 1.0
-    bonus = 0.1 * (len(matched_optional) / len(optional)) if optional else 0.0
+    base = credit(matched_required) / len(required) if required else 1.0
+    bonus = 0.1 * (credit(matched_optional) / len(optional)) if optional else 0.0
     skill_score = min(1.0, base + bonus)
 
     years = estimate_years(resume_text)
@@ -171,8 +290,14 @@ def score_deterministic(
         if canonical(requirement) not in present:
             failures.append(requirement)
 
+    total_named = len(matched_required | matched_optional)
+    stuffing = bool(total_named) and (len(named_only) / total_named) >= STUFFING_RATIO
+
     return DeterministicScore(
         skill_score=round(skill_score, 4),
+        evidenced_skills=evidenced,
+        named_only_skills=named_only,
+        looks_stuffed=stuffing,
         experience_score=round(experience, 4),
         matched_skills=matched_required | matched_optional,
         missing_skills=required - matched_required,
