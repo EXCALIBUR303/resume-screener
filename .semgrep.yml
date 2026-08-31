@@ -1,0 +1,36 @@
+# Project-specific rules. These encode the anti-loophole rules from the blueprint
+# as machine checks, so they cannot be forgotten under deadline pressure.
+rules:
+  - id: unscoped-db-access
+    languages: [python]
+    severity: ERROR
+    message: >-
+      Direct session.get()/query() outside repos/ bypasses tenant scoping (rule D-11).
+      Use repo.get_scoped(id, actor) instead.
+    paths:
+      include: ["apps/api/src/**"]
+      exclude: ["apps/api/src/screener_api/repos/**"]
+    patterns:
+      - pattern-either:
+          - pattern: $S.get($MODEL, ...)
+          - pattern: $S.query($MODEL)
+      - pattern-not: $S.get($K)
+
+  - id: raw-sql-outside-migrations
+    languages: [python]
+    severity: ERROR
+    message: Raw text() SQL is only allowed in migrations (rule C.4 hardening).
+    paths:
+      include: ["apps/api/src/**"]
+    pattern: text("...")
+
+  - id: redaction-must-not-be-disableable
+    languages: [python]
+    severity: ERROR
+    message: >-
+      REDACTION_ENABLED must never be read as a runtime toggle in the AI path.
+      Redaction is unconditional outside unit tests (rule C.3).
+    paths:
+      include: ["apps/api/src/**", "apps/worker/src/**"]
+    pattern-either:
+      - pattern: if not $S.redaction_enabled: ...

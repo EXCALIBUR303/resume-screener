@@ -1,0 +1,26 @@
+# syntax=docker/dockerfile:1
+FROM python:3.12-slim AS base
+ENV PYTHONUNBUFFERED=1 PYTHONDONTWRITEBYTECODE=1
+WORKDIR /app
+
+FROM base AS deps
+COPY --from=ghcr.io/astral-sh/uv:0.5.11 /uv /usr/local/bin/uv
+# Hash-pinned lock only: a build cannot silently pull a different version, and
+# this layer is cached until the lock itself changes.
+COPY apps/api/requirements.lock ./
+RUN uv pip install --system --no-cache --require-hashes -r requirements.lock
+
+FROM base AS runtime
+# Non-root from the start. Adding it later means every volume permission is wrong.
+RUN useradd --create-home --uid 10001 appuser
+COPY --from=deps /usr/local/lib/python3.12/site-packages /usr/local/lib/python3.12/site-packages
+COPY --from=deps /usr/local/bin /usr/local/bin
+COPY --chown=appuser:appuser apps/api/src ./src
+COPY --chown=appuser:appuser apps/api/alembic ./alembic
+COPY --chown=appuser:appuser apps/api/alembic.ini ./
+ENV PYTHONPATH=/app/src
+USER appuser
+EXPOSE 8000
+HEALTHCHECK --interval=5s --timeout=3s --start-period=15s --retries=10 \
+  CMD python -c "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/healthz',timeout=2).status==200 else 1)"
+CMD ["uvicorn", "screener_api.main:app", "--host", "0.0.0.0", "--port", "8000"]

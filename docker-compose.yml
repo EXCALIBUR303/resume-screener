@@ -1,17 +1,42 @@
-# Day-1 slice: just the database. Services are added as milestones land (see docs/BLUEPRINT.md §F).
+# Local stack. Profiles add optional services:
+#   docker compose --profile clamav up -d
+name: resume-screener
+
 services:
   db:
     image: pgvector/pgvector:pg16
     environment:
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER:-screener}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set in .env}
+      POSTGRES_DB: ${POSTGRES_DB:-screener}
     ports: ["5432:5432"]
     volumes: ["pgdata:/var/lib/postgresql/data"]
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER:-screener} -d $${POSTGRES_DB:-screener}"]
       interval: 5s
       timeout: 3s
       retries: 20
+    security_opt: ["no-new-privileges:true"]
+
+  api:
+    build:
+      context: .
+      dockerfile: infra/docker/Dockerfile.api
+    env_file: [.env]
+    environment:
+      POSTGRES_HOST: db
+    depends_on:
+      db: { condition: service_healthy }
+    ports: ["8000:8000"]
+    read_only: true
+    tmpfs: ["/tmp"]
+    cap_drop: ["ALL"]
+    security_opt: ["no-new-privileges:true"]
+    mem_limit: 1g
+
+  # worker-parse arrives in M3. It is declared here so the network isolation is
+  # a property of the stack from day one rather than a retrofit:
+  #   network_mode: none, read_only, cap_drop ALL, non-root, rlimits.
+
 volumes:
   pgdata:

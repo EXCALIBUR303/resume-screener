@@ -1,0 +1,54 @@
+# Install once:  pre-commit install --install-hooks
+default_install_hook_types: [pre-commit, commit-msg]
+
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: check-added-large-files
+        args: ["--maxkb=1024"]
+      - id: detect-private-key
+      - id: end-of-file-fixer
+      - id: trailing-whitespace
+      - id: check-merge-conflict
+      - id: check-yaml
+      - id: check-toml
+
+  # Runs first in spirit: a secret that reaches a commit is already a problem.
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.21.2
+    hooks:
+      - id: gitleaks
+
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.8.4
+    hooks:
+      - id: ruff
+        args: [--fix]
+        files: ^apps/api/
+      - id: ruff-format
+        files: ^apps/api/
+
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v1.13.0
+    hooks:
+      - id: mypy
+        files: ^apps/api/src/
+        additional_dependencies: [pydantic>=2.9, pydantic-settings>=2.6, structlog, fastapi]
+
+  - repo: local
+    hooks:
+      - id: conventional-commit
+        name: conventional commit message
+        entry: >-
+          bash -c 'grep -qE "^(feat|fix|docs|style|refactor|perf|test|build|ci|chore|sec|revert)(\(.+\))?!?: .{1,}" "$1"
+          || { echo "Commit message must follow Conventional Commits, e.g. feat(api): add upload route"; exit 1; }' --
+        language: system
+        stages: [commit-msg]
+
+      - id: no-prompt-edit-without-version-bump
+        name: prompt files require a version bump (rule D-12)
+        entry: scripts/check_prompt_versions.sh
+        language: system
+        files: ^prompts/
+        pass_filenames: true

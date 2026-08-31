@@ -1,0 +1,42 @@
+name: security
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    - cron: "0 6 * * 1"   # weekly, so a new CVE in a stale dep still surfaces
+
+permissions:
+  contents: read
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }   # gitleaks needs history
+
+      - name: Secrets (gitleaks)
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: astral-sh/setup-uv@v5
+      - name: Install
+        working-directory: apps/api
+        run: uv venv --python 3.12 && uv pip install -e ".[dev]"
+
+      - name: SAST (bandit)
+        working-directory: apps/api
+        run: .venv/bin/bandit -q -r src -ll
+
+      - name: Dependency audit (pip-audit)
+        working-directory: apps/api
+        run: uvx pip-audit --strict -r <(uv pip freeze) || uvx pip-audit --strict
+
+      - name: Semgrep
+        uses: semgrep/semgrep-action@v1
+        with:
+          config: >-
+            p/python p/security-audit p/secrets .semgrep.yml
