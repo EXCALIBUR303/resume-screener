@@ -12,6 +12,7 @@ Two rules this module exists to enforce:
 from __future__ import annotations
 
 from functools import lru_cache
+from pathlib import Path
 from typing import Literal
 
 from pydantic import PostgresDsn, SecretStr, model_validator
@@ -55,8 +56,18 @@ class Settings(BaseSettings):
     auth_local_enabled: bool = True
     login_rate_limit_per_minute: int = 5
 
+    app_kek_version: int = 1
+
+    storage_backend: Literal["local", "s3"] = "local"
+    storage_local_path: Path = Path("/data/files")
+
     upload_max_bytes: int = 10 * 1024 * 1024
     upload_max_pages: int = 30
+    upload_max_chars: int = 500_000
+    zip_max_ratio: int = 100
+    zip_max_entries: int = 2000
+    zip_max_uncompressed_bytes: int = 100 * 1024 * 1024
+    clamav_enabled: bool = False
 
     # Deliberately a plain property, NOT a computed_field: a computed_field is
     # included in repr() and model_dump(), which would re-expose the password

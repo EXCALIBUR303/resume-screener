@@ -20,6 +20,12 @@ dependencies = [
     "structlog>=24.4",
     "argon2-cffi>=23.1",
     "pyjwt>=2.10",
+    "cryptography>=44.0",
+    # Content sniffing by magic bytes. Needs libmagic (brew install libmagic /
+    # apt install libmagic1) — extension and Content-Type are attacker-controlled.
+    "python-magic>=0.4.27",
+    "pypdf>=5.1",            # MIT; see ADR-0002 for why not PyMuPDF
+    "python-multipart>=0.0.20",
 ]
 
 [project.optional-dependencies]
@@ -30,6 +36,8 @@ dev = [
     "mypy>=1.13",
     "ruff>=0.8",
     "bandit>=1.8",
+    "pytest-asyncio>=0.25",
+    "testcontainers[postgres]>=4.9",
 ]
 
 [build-system]
@@ -68,4 +76,5 @@ ignore_missing_imports = true
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-q --strict-markers"
-markers = ["integration: needs a live database"]
+markers = ["integration: needs a live database (testcontainers)"]
+asyncio_mode = "auto"

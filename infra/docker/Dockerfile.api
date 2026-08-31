@@ -11,6 +11,10 @@ COPY apps/api/requirements.lock ./
 RUN uv pip install --system --no-cache --require-hashes -r requirements.lock
 
 FROM base AS runtime
+# libmagic1: content sniffing by magic bytes (python-magic). Extension and
+# Content-Type are attacker-controlled; the sniff is the authority.
+RUN apt-get update && apt-get install -y --no-install-recommends libmagic1 \
+ && rm -rf /var/lib/apt/lists/*
 # Non-root from the start. Adding it later means every volume permission is wrong.
 RUN useradd --create-home --uid 10001 appuser
 COPY --from=deps /usr/local/lib/python3.12/site-packages /usr/local/lib/python3.12/site-packages
@@ -18,6 +22,8 @@ COPY --from=deps /usr/local/bin /usr/local/bin
 COPY --chown=appuser:appuser apps/api/src ./src
 COPY --chown=appuser:appuser apps/api/alembic ./alembic
 COPY --chown=appuser:appuser apps/api/alembic.ini ./
+# Blob store must be writable even though the rootfs is read-only.
+RUN mkdir -p /data/files && chown -R appuser:appuser /data
 ENV PYTHONPATH=/app/src
 USER appuser
 EXPOSE 8000

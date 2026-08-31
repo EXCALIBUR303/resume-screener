@@ -34,6 +34,7 @@ services:
     ports: ["8000:8000"]
     read_only: true
     tmpfs: ["/tmp"]
+    volumes: ["blobs:/data/files"]
     cap_drop: ["ALL"]
     security_opt: ["no-new-privileges:true"]
     mem_limit: 1g
@@ -44,3 +45,4 @@ services:
 
 volumes:
   pgdata:
+  blobs:

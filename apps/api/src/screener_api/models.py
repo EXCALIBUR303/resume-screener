@@ -40,7 +40,13 @@ class Organization(Base):
     retention_days: Mapped[int] = mapped_column(Integer, nullable=False, default=180)
     created_at: Mapped[dt.datetime] = _now()
 
-    users: Mapped[list[User]] = relationship(back_populates="organization")
+    # passive_deletes=True is load-bearing, not tidiness: without it SQLAlchemy
+    # "de-associates" children by setting org_id = NULL instead of letting the
+    # FK's ON DELETE CASCADE fire. On the erasure path that orphans rows rather
+    # than removing them — the exact residue AC-14 forbids.
+    users: Mapped[list[User]] = relationship(
+        back_populates="organization", cascade="all, delete-orphan", passive_deletes=True
+    )
 
 
 class User(Base):
@@ -62,7 +68,10 @@ class User(Base):
 
     organization: Mapped[Organization] = relationship(back_populates="users")
     roles: Mapped[list[UserRole]] = relationship(
-        back_populates="user", cascade="all, delete-orphan", lazy="selectin"
+        back_populates="user",
+        cascade="all, delete-orphan",
+        lazy="selectin",
+        passive_deletes=True,
     )
 
     @property
@@ -138,3 +147,75 @@ class AuditEvent(Base):
     prev_hash: Mapped[str] = mapped_column(String(64), nullable=False)
     hash: Mapped[str] = mapped_column(String(64), nullable=False)
     created_at: Mapped[dt.datetime] = _now()
+
+
+class StoredFile(Base):
+    """An uploaded blob. Content-addressed; the user's filename is a label only."""
+
+    __tablename__ = "files"
+    __table_args__ = (
+        # Deduplication is per tenant: two orgs uploading the same resume get
+        # separate rows, so deleting one org's copy cannot affect the other.
+        UniqueConstraint("org_id", "sha256", name="uq_files_org_sha"),
+    )
+
+    id: Mapped[uuid.UUID] = _pk()
+    org_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    storage_key: Mapped[str] = mapped_column(String(140), nullable=False)
+    byte_size: Mapped[int] = mapped_column(Integer, nullable=False)
+    mime_declared: Mapped[str | None] = mapped_column(String(180), nullable=True)
+    mime_sniffed: Mapped[str] = mapped_column(String(180), nullable=False)
+    mime_resolved: Mapped[str] = mapped_column(String(180), nullable=False)
+    original_filename: Mapped[str] = mapped_column(String(255), nullable=False, default="")
+    page_count: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    scan_status: Mapped[str] = mapped_column(String(20), nullable=False, default="skipped")
+    scan_engine: Mapped[str | None] = mapped_column(String(60), nullable=True)
+    is_quarantined: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    uploaded_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)
+    created_at: Mapped[dt.datetime] = _now()
+
+
+class Candidate(Base):
+    __tablename__ = "candidates"
+
+    id: Mapped[uuid.UUID] = _pk()
+    org_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    # A stable, non-identifying handle shown in the UI until PII is re-hydrated.
+    pseudonym: Mapped[str] = mapped_column(String(60), nullable=False)
+    external_ref: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    created_at: Mapped[dt.datetime] = _now()
+    deleted_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    resumes: Mapped[list[Resume]] = relationship(
+        back_populates="candidate", cascade="all, delete-orphan", passive_deletes=True
+    )
+
+
+class Resume(Base):
+    __tablename__ = "resumes"
+
+    id: Mapped[uuid.UUID] = _pk()
+    org_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    candidate_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("candidates.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    file_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("files.id", ondelete="RESTRICT"), nullable=False
+    )
+    # Provenance travels with the row: a score is never interpretable without it.
+    parse_status: Mapped[str] = mapped_column(String(30), nullable=False, default="pending")
+    parse_error: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    ocr_used: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    ocr_confidence: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    language: Mapped[str | None] = mapped_column(String(12), nullable=True)
+    pipeline_version: Mapped[str] = mapped_column(String(20), nullable=False, default="0")
+    created_at: Mapped[dt.datetime] = _now()
+
+    candidate: Mapped[Candidate] = relationship(back_populates="resumes")

@@ -1,0 +1,10 @@
+# Allowlisted findings. Each entry needs a justification — an unexplained line
+# here is how a real secret eventually gets ignored.
+#
+# Format: <commit>:<path>:<rule>:<line>
+
+# Synthetic JWT used to prove the log redactor strips credentials. Header
+# {"alg":"HS256"}, payload {"sub":"1234567890"}, signature literally
+# "abcdefghijklmnop". Never valid anywhere; the test exists precisely to keep
+# real tokens out of logs. Verified by hand 2026-08-31.
+e42912c712c61f87ddc0441ca2a4e4af02a28c83:apps/api/tests/test_logging_redaction.py:jwt:95
