@@ -1,0 +1,58 @@
+name: eval
+
+on:
+  pull_request:
+    paths:
+      - "apps/api/src/screener_api/retrieval/**"
+      - "apps/api/src/screener_api/scoring/**"
+      - "prompts/**"
+      - "evals/**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  golden-set:
+    name: golden set vs committed baseline
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: screener
+          POSTGRES_PASSWORD: eval-only-password
+          POSTGRES_DB: screener
+        ports: ["5433:5432"]
+        options: >-
+          --health-cmd pg_isready --health-interval 5s
+          --health-timeout 3s --health-retries 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with: { enable-cache: true }
+      - working-directory: apps/api
+        run: uv venv --python 3.12 && uv pip install -e ".[dev]"
+      - name: Migrate
+        working-directory: apps/api
+        env:
+          POSTGRES_HOST: localhost
+          POSTGRES_PORT: "5433"
+          POSTGRES_PASSWORD: eval-only-password
+        run: .venv/bin/alembic upgrade head
+      - name: Metric unit tests
+        working-directory: apps/api
+        run: .venv/bin/pytest tests/test_eval_metrics.py -q
+      - name: Run the harness
+        env:
+          POSTGRES_HOST: localhost
+          POSTGRES_PORT: "5433"
+          POSTGRES_PASSWORD: eval-only-password
+        run: apps/api/.venv/bin/python evals/harness.py
+      - name: "AC-10 compare against the committed baseline"
+        run: apps/api/.venv/bin/python scripts/check_eval_regression.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: eval-report
+          path: evals/reports/latest.json
