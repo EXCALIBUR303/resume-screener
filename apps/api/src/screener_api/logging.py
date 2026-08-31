@@ -47,9 +47,30 @@ REDACTED = "[redacted]"
 # Value-shaped redaction, for PII that arrives in a field we did not anticipate.
 PATTERNS: tuple[tuple[re.Pattern[str], str], ...] = (
     (re.compile(r"[\w.+-]+@[\w-]+\.[\w.-]+"), "[email]"),
-    (re.compile(r"(?<!\d)(?:\+\d{1,3}[\s-]?)?(?:\d[\s-]?){9,14}\d(?!\d)"), "[phone]"),
-    (re.compile(r"\b[A-Za-z0-9+/]{40,}={0,2}\b"), "[key-like]"),
+    # Boundaries exclude [0-9a-zA-Z-] on both sides so this cannot fire inside a
+    # UUID, a hash, or any hyphenated identifier. Without them it corrupted every
+    # request_id in the logs — see test_uuids_are_not_mistaken_for_phone_numbers.
+    (
+        re.compile(
+            r"(?<![0-9a-zA-Z-])"
+            r"(?:\+\d{1,3}[\s.-]?)?"
+            r"(?:\(?\d{2,4}\)?[\s.-]?){2,4}\d{2,4}"
+            r"(?![0-9a-zA-Z-])"
+        ),
+        "[phone]",
+    ),
+    # Long high-entropy strings look like credentials. Hex digests are the
+    # documented exception: sha256 content addresses and audit-chain hashes are
+    # not secrets, and redacting them would make the audit log uncorrelatable.
+    (
+        re.compile(r"\b(?![0-9a-f]{32}\b|[0-9a-f]{40}\b|[0-9a-f]{64}\b)[A-Za-z0-9+/]{40,}={0,2}\b"),
+        "[key-like]",
+    ),
     (re.compile(r"postgresql(?:\+\w+)?://[^:]+:[^@]+@"), "postgresql://[redacted]@"),
+    # A JWT as a whole, not just its long middle segment. Matching by length
+    # alone let the header through, which is enough to fingerprint the algorithm.
+    (re.compile(r"\beyJ[A-Za-z0-9_-]*\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]*"), "[jwt]"),
+    (re.compile(r"\b[Bb]earer\s+[A-Za-z0-9._~+/-]+=*"), "Bearer [redacted]"),
 )
 
 

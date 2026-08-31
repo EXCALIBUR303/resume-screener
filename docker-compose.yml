@@ -9,7 +9,11 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:-screener}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set in .env}
       POSTGRES_DB: ${POSTGRES_DB:-screener}
-    ports: ["5432:5432"]
+    # Host port 5433, not 5432: a native Homebrew PostgreSQL is already bound to
+    # 127.0.0.1:5432 on this machine and wins for localhost connections. Anything
+    # run from the host would silently hit the wrong database. Inside the compose
+    # network the API still reaches it as db:5432.
+    ports: ["5433:5432"]
     volumes: ["pgdata:/var/lib/postgresql/data"]
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER:-screener} -d $${POSTGRES_DB:-screener}"]

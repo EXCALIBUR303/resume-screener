@@ -47,6 +47,13 @@ class Settings(BaseSettings):
 
     app_kek: SecretStr = SecretStr("CHANGE_ME_base64_32_bytes")
     jwt_secret: SecretStr = SecretStr("CHANGE_ME_base64_32_bytes")
+    jwt_algorithm: Literal["HS256"] = "HS256"  # pinned; a list here would allow alg confusion
+    jwt_issuer: str = "resume-screener"
+    jwt_audience: str = "resume-screener-api"
+    access_token_ttl_seconds: int = 900  # 15 min
+    refresh_token_ttl_seconds: int = 1_209_600  # 14 days, rotating
+    auth_local_enabled: bool = True
+    login_rate_limit_per_minute: int = 5
 
     upload_max_bytes: int = 10 * 1024 * 1024
     upload_max_pages: int = 30

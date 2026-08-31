@@ -55,3 +55,56 @@ def test_recursion_is_bounded() -> None:
     for _ in range(50):
         deep = {"k": deep}
     scrub(payload=deep)  # must not raise
+
+
+# ---- Regressions: over-redaction is a bug too ----------------------------------
+# The redactor corrupted every request_id in the logs before these existed
+# ("3ed85c6e-7fcd-[phone]a8c49bd0"). A redactor that mangles identifiers destroys
+# the correlation the logs exist for, so precision is a requirement, not a nicety.
+
+
+def test_uuids_are_not_mistaken_for_phone_numbers() -> None:
+    import uuid as _uuid
+
+    for _ in range(200):
+        value = str(_uuid.uuid4())
+        assert scrub(request_id=value)["request_id"] == value
+
+
+def test_iso_timestamps_survive() -> None:
+    stamp = "2026-08-31T12:40:08.944259Z"
+    assert scrub(timestamp=stamp)["timestamp"] == stamp
+
+
+def test_sha256_digests_survive() -> None:
+    """Content addresses and audit-chain hashes are not secrets. Redacting them
+    would make the audit log impossible to correlate."""
+    digest = "3f5a" * 16
+    assert scrub(hash=digest)["hash"] == digest
+
+
+def test_durations_and_counts_survive() -> None:
+    out = scrub(duration_ms=1234.56, count=987654321, port=5432)
+    assert out["duration_ms"] == 1234.56
+    assert out["count"] == 987654321
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "token eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.abcdefghijklmnop",
+        "Authorization: Bearer abc123def456ghi789",
+    ],
+)
+def test_credentials_in_free_text_are_redacted(text: str) -> None:
+    out = str(scrub(note=text)["note"])
+    assert "eyJ" not in out
+    assert "abc123def456ghi789" not in out
+
+
+@pytest.mark.parametrize(
+    "number", ["+91 98765 44321", "+1 (555) 123-4567", "+44 20 7946 0958", "9876543210"]
+)
+def test_real_phone_numbers_are_still_redacted(number: str) -> None:
+    """Tightening the pattern must not have opened a hole."""
+    assert number not in str(scrub(note=f"call {number} now")["note"])

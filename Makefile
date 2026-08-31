@@ -76,3 +76,11 @@ lock: ## Regenerate the hash-pinned lock for the runtime platform
 
 .PHONY: lock
 
+
+.PHONY: seed
+seed: ## Seed a dev org with one user per role (synthetic data only)
+	POSTGRES_HOST=localhost POSTGRES_PORT=5433 $(VENV)/python scripts/seed_dev.py
+
+.PHONY: verify-audit
+verify-audit: ## Walk the audit hash chain and report any break
+	POSTGRES_HOST=localhost POSTGRES_PORT=5433 $(VENV)/python scripts/verify_audit.py
