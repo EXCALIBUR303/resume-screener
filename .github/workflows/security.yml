@@ -17,12 +17,21 @@ jobs:
       - uses: actions/checkout@v4
         with: { fetch-depth: 0 }   # gitleaks needs history
 
+      # The binary rather than gitleaks-action: the action exits 1 even when it
+      # reports "no leaks found" (it gates on a licence for some repo types),
+      # and running the binary means CI and `make sec` execute the same tool
+      # with the same .gitleaksignore.
       - name: Secrets (gitleaks)
-        uses: gitleaks/gitleaks-action@v2
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          curl -sSL -o /tmp/gitleaks.tar.gz \
+            https://github.com/gitleaks/gitleaks/releases/download/v8.21.2/gitleaks_8.21.2_linux_x64.tar.gz
+          tar -xzf /tmp/gitleaks.tar.gz -C /tmp gitleaks
+          /tmp/gitleaks detect --no-banner --redact --exit-code 1
 
       - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+          cache-dependency-glob: "apps/api/requirements.lock"
       - name: Install
         working-directory: apps/api
         run: uv venv --python 3.12 && uv pip install -e ".[dev]"
@@ -55,14 +64,14 @@ jobs:
           docker build -f infra/docker/Dockerfile.api -t screener-api:scan .
           docker build -f infra/docker/Dockerfile.worker -t screener-worker:scan .
       - name: Trivy (api)
-        uses: aquasecurity/trivy-action@0.28.0
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
           image-ref: screener-api:scan
           severity: HIGH,CRITICAL
           exit-code: "1"
           ignore-unfixed: true
       - name: Trivy (worker)
-        uses: aquasecurity/trivy-action@0.28.0
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
           image-ref: screener-worker:scan
           severity: HIGH,CRITICAL
@@ -95,6 +104,7 @@ jobs:
         with:
           target: http://localhost:8000
           # Fails the build on any WARN or above that is not in the rules file.
+          rules_file_name: .zap/rules.tsv
           cmd_options: "-a -j"
           allow_issue_writing: false
       - if: always()

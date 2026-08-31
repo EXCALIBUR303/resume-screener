@@ -19,7 +19,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v5
-        with: { enable-cache: true }
+        with:
+          enable-cache: true
+          # Default glob misses apps/api/requirements.lock, so the cache
+          # key never changed and the cache never invalidated.
+          cache-dependency-glob: "apps/api/requirements.lock"
       - name: Install
         working-directory: apps/api
         run: uv venv --python 3.12 && uv pip install -e ".[dev]"
@@ -46,7 +50,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v5
-        with: { enable-cache: true }
+        with:
+          enable-cache: true
+          # Default glob misses apps/api/requirements.lock, so the cache
+          # key never changed and the cache never invalidated.
+          cache-dependency-glob: "apps/api/requirements.lock"
       - working-directory: apps/api
         run: uv venv --python 3.12 && uv pip install -e ".[dev]"
       - working-directory: apps/api
@@ -81,7 +89,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v5
-        with: { enable-cache: true }
+        with:
+          enable-cache: true
+          # Default glob misses apps/api/requirements.lock, so the cache
+          # key never changed and the cache never invalidated.
+          cache-dependency-glob: "apps/api/requirements.lock"
       - working-directory: apps/api
         run: uv venv --python 3.12 && uv pip install -e ".[dev]"
       - name: Integration tests
