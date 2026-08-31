@@ -195,41 +195,69 @@ class StubProvider:
                 )
 
         return Completion(
-            text=self._synthesise(user),
+            text=self._synthesise(user, schema),
             model_id=self.model_id,
             prompt_tokens=len(user) // 4,
             completion_tokens=64,
             latency_ms=0.0,
         )
 
-    def _synthesise(self, user: str) -> str:
-        """Build a valid response that cites text genuinely present in the input.
+    def _synthesise(self, user: str, schema: dict[str, Any] | None) -> str:
+        """Build a valid response for WHATEVER schema was requested.
 
-        Citing real substrings matters: a stub that invented quotes would make
-        the evidence verifier pass in tests and fail in production.
+        The first version hardcoded one shape and could therefore only exercise
+        one code path — the interview guide failed schema validation the moment
+        it was added. Deriving the response from the schema means every
+        structured call the project ever adds is testable offline, for free.
+
+        Quotes are drawn from real lines of the prompt, so evidence verification
+        is genuinely exercised rather than bypassed: a stub that invented quotes
+        would pass in tests and fail in production.
         """
         seed = int(hashlib.sha256(user.encode()).hexdigest()[:8], 16)
-        lines = [
+        quotes = [
             ln.strip()
             for ln in user.split("\n")
             if 20 <= len(ln.strip()) <= 200 and not ln.strip().startswith("<")
-        ]
-        quote = lines[seed % len(lines)] if lines else "no usable evidence"
-        return json.dumps(
-            {
-                "competencies": [
-                    {
-                        "name": "Python",
-                        "level": seed % 5,
-                        "evidence": [{"chunk_id": "c0", "quote": quote}],
-                    },
-                    {
-                        "name": "Databases",
-                        "level": (seed // 5) % 5,
-                        "evidence": [{"chunk_id": "c0", "quote": quote}],
-                    },
-                ],
-                "unmet_requirements": ["Kubernetes"] if seed % 2 else [],
-                "overall_rationale": "Deterministic stub assessment.",
+        ] or ["no usable evidence in the document"]
+        return json.dumps(self._value_for(schema or {}, seed, quotes))
+
+    def _value_for(self, schema: dict[str, Any], seed: int, quotes: list[str]) -> Any:
+        kind = schema.get("type")
+        if isinstance(kind, list):
+            kind = next((k for k in kind if k != "null"), "string")
+
+        if kind == "object":
+            required = set(schema.get("required", []))
+            properties: dict[str, Any] = schema.get("properties", {})
+            return {
+                name: self._value_for(sub, seed + i, quotes)
+                for i, (name, sub) in enumerate(properties.items())
+                if name in required or seed % 2 == 0
             }
-        )
+        if kind == "array":
+            item_schema = schema.get("items", {"type": "string"})
+            count = max(int(schema.get("minItems", 1)), 1)
+            count = min(count + 1, int(schema.get("maxItems", count + 1)))
+            return [self._value_for(item_schema, seed + i, quotes) for i in range(count)]
+        if kind == "integer":
+            low = int(schema.get("minimum", 0))
+            high = int(schema.get("maximum", low + 4))
+            return low + (seed % max(1, high - low + 1))
+        if kind == "number":
+            return float(seed % 100) / 100
+        if kind == "boolean":
+            return bool(seed % 2)
+
+        # Strings: satisfy enum, then length bounds, and prefer a real quote so
+        # evidence verification has something genuine to check.
+        if "enum" in schema:
+            options = list(schema["enum"])
+            return options[seed % len(options)]
+        minimum = int(schema.get("minLength", 0))
+        maximum = int(schema.get("maxLength", 300))
+        value = quotes[seed % len(quotes)]
+        if len(value) < minimum:
+            value = (value + " deterministic stub output")[: max(minimum, len(value))]
+            value = value.ljust(minimum, ".")
+        return value[:maximum]
