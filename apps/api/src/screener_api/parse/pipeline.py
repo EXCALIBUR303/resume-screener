@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import datetime as dt
+import json
 import uuid
 from dataclasses import dataclass
 
@@ -11,7 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from screener_api.ingest.storage import BlobStore
 from screener_api.ingest.validation import DOCX_MIME, PDF_MIME
-from screener_api.models import Resume, ResumeText, StoredFile
+from screener_api.models import PiiMap, Resume, ResumeText, StoredFile
 from screener_api.parse.extract import (
     Extraction,
     ExtractionError,
@@ -22,7 +24,9 @@ from screener_api.parse.extract import (
 )
 from screener_api.parse.ocr import is_low_confidence, ocr_pdf
 from screener_api.parse.sections import detect_language, segment
+from screener_api.privacy.redact import redact
 from screener_api.queue import TerminalError
+from screener_api.security.crypto import encrypt
 
 log = structlog.get_logger()
 
@@ -74,7 +78,12 @@ def parse_bytes(data: bytes, *, mime: str, ocr_enabled: bool = True) -> ParseOut
 
 
 async def handle_parse_job(
-    session: AsyncSession, payload: dict[str, object], *, store: BlobStore
+    session: AsyncSession,
+    payload: dict[str, object],
+    *,
+    store: BlobStore,
+    kek: bytes,
+    kek_version: int,
 ) -> None:
     resume_id = uuid.UUID(str(payload["resume_id"]))
 
@@ -127,6 +136,48 @@ async def handle_parse_job(
         existing.char_count = len(outcome.extraction.text)
         existing.sections = dict(outcome.sections)
         existing.extractor = outcome.extraction.extractor
+
+    # ---- Redaction happens HERE, inside the network-isolated worker ----------
+    # Before anything is embedded, prompted, indexed, or logged. Raw text never
+    # leaves this process un-redacted, which is exactly what AC-3 asserts.
+    redaction = redact(outcome.extraction.text, header=outcome.sections.get("header"))
+    text_row = (
+        await session.execute(select(ResumeText).where(ResumeText.resume_id == resume_id))
+    ).scalar_one()
+    text_row.text_redacted = redaction.text
+
+    envelope = encrypt(
+        json.dumps(redaction.token_map, sort_keys=True).encode(),
+        kek=kek,
+        kek_version=kek_version,
+        aad=str(resume.org_id).encode(),
+    )
+    existing_map = (
+        await session.execute(select(PiiMap).where(PiiMap.resume_id == resume_id))
+    ).scalar_one_or_none()
+    if existing_map is None:
+        session.add(
+            PiiMap(
+                id=uuid.uuid4(),
+                org_id=resume.org_id,
+                resume_id=resume_id,
+                ciphertext=envelope.to_bytes(),
+                entity_counts=dict(redaction.counts),
+            )
+        )
+    else:
+        existing_map.ciphertext = envelope.to_bytes()
+        existing_map.entity_counts = dict(redaction.counts)
+
+    resume.redacted_at = dt.datetime.now(dt.UTC)
+    resume.needs_manual_review = outcome.needs_manual_review
+
+    log.info(
+        "redaction.completed",
+        resume_id=str(resume_id),
+        entities=redaction.entity_count,
+        counts=redaction.counts,
+    )
 
     log.info(
         "parse.completed",

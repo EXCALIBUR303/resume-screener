@@ -71,16 +71,14 @@ async def run() -> int:
     if _sessionmaker is None:
         raise RuntimeError("engine not initialised")
 
-    store = BlobStore(
-        settings.storage_local_path,
-        kek=derive_kek(settings.app_kek.get_secret_value(), settings.app_kek_version),
-        kek_version=settings.app_kek_version,
-    )
+    kek = derive_kek(settings.app_kek.get_secret_value(), settings.app_kek_version)
+    store = BlobStore(settings.storage_local_path, kek=kek, kek_version=settings.app_kek_version)
 
     log.info("worker.started", worker=worker_id, types=[str(t) for t in types])
     idle_ticks = 0
 
     while not _stopping:
+        failure: tuple[Any, BaseException, ErrorClass] | None = None
         async with _sessionmaker() as session:
             # Any worker may reclaim: the sweeper does not need its own process.
             if idle_ticks % 60 == 0:
@@ -102,29 +100,40 @@ async def run() -> int:
             structlog.contextvars.bind_contextvars(job_id=str(job.id), job_type=job.job_type)
             try:
                 if job.job_type == str(JobType.PARSE):
-                    await handle_parse_job(session, dict(job.payload), store=store)
+                    await handle_parse_job(
+                        session,
+                        dict(job.payload),
+                        store=store,
+                        kek=kek,
+                        kek_version=settings.app_kek_version,
+                    )
                 else:
                     raise TerminalError(f"no handler for job type {job.job_type}")
                 await complete(session, job)
                 await session.commit()
             except TerminalError as exc:
                 await session.rollback()
-                await _record_failure(session, job.id, exc, ErrorClass.TERMINAL)
+                failure = (job.id, exc, ErrorClass.TERMINAL)
             except Exception as exc:
                 await session.rollback()
                 log.exception("job.failed")
-                await _record_failure(session, job.id, exc, ErrorClass.RETRYABLE)
+                failure = (job.id, exc, ErrorClass.RETRYABLE)
             finally:
                 structlog.contextvars.clear_contextvars()
+
+        # Bookkeeping runs OUTSIDE the failed session's context. Opening a
+        # second session while the first was unwinding raised MissingGreenlet,
+        # which left the job stuck in 'running' until the lease sweeper
+        # rescued it minutes later.
+        if failure is not None:
+            await _record_failure(*failure)
 
     await dispose_engine()
     log.info("worker.stopped")
     return 0
 
 
-async def _record_failure(
-    session: Any, job_id: Any, error: BaseException, error_class: ErrorClass
-) -> None:
+async def _record_failure(job_id: Any, error: BaseException, error_class: ErrorClass) -> None:
     """Failure bookkeeping runs in its own transaction: the job's own
     transaction was rolled back, and losing the error record would strand the
     job as permanently running."""

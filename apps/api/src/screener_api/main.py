@@ -13,7 +13,7 @@ from sqlalchemy import text
 from screener_api.db import dispose_engine, init_engine
 from screener_api.logging import configure_logging
 from screener_api.middleware import RequestContextMiddleware
-from screener_api.routers import admin, auth, resumes
+from screener_api.routers import admin, auth, candidates, resumes
 from screener_api.settings import Settings, get_settings
 
 log = structlog.get_logger()
@@ -49,6 +49,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(auth.router)
     app.include_router(admin.router)
     app.include_router(resumes.router)
+    app.include_router(candidates.router)
 
     @app.get("/healthz", tags=["ops"])
     async def healthz() -> dict[str, str]:

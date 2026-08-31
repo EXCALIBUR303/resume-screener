@@ -16,9 +16,15 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
       tesseract-ocr tesseract-ocr-eng poppler-utils libmagic1 \
  && rm -rf /var/lib/apt/lists/*
 
-RUN useradd --create-home --uid 10002 worker
+# The spaCy model must be baked in: this container has no network at runtime,
+# so it cannot download anything. en_core_web_sm (15 MB) rather than _lg
+# (560 MB) — NER is one of four redaction layers, not the load-bearing one, and
+# measured recall is 100% on the seeded-marker set with the small model.
 COPY --from=deps /usr/local/lib/python3.12/site-packages /usr/local/lib/python3.12/site-packages
 COPY --from=deps /usr/local/bin /usr/local/bin
+RUN python -m spacy download en_core_web_sm
+
+RUN useradd --create-home --uid 10002 worker
 COPY --chown=worker:worker apps/api/src ./src
 RUN mkdir -p /data/files && chown -R worker:worker /data
 ENV PYTHONPATH=/app/src

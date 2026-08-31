@@ -11,6 +11,7 @@ from sqlalchemy import (
     ForeignKey,
     Index,
     Integer,
+    LargeBinary,
     String,
     Text,
     UniqueConstraint,
@@ -217,6 +218,8 @@ class Resume(Base):
     ocr_confidence: Mapped[int | None] = mapped_column(Integer, nullable=True)
     language: Mapped[str | None] = mapped_column(String(12), nullable=True)
     pipeline_version: Mapped[str] = mapped_column(String(20), nullable=False, default="0")
+    redacted_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    needs_manual_review: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     created_at: Mapped[dt.datetime] = _now()
 
     candidate: Mapped[Candidate] = relationship(back_populates="resumes")
@@ -292,4 +295,28 @@ class ResumeText(Base):
     char_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     sections: Mapped[dict[str, object]] = mapped_column(JSONB, nullable=False, default=dict)
     extractor: Mapped[str] = mapped_column(String(30), nullable=False)
+    created_at: Mapped[dt.datetime] = _now()
+
+
+class PiiMap(Base):
+    """The encrypted token -> original mapping for one resume.
+
+    Held apart from the redacted text on purpose. The model path reads
+    ``resume_texts.text_redacted`` and has no reason ever to touch this table;
+    only the API process, serving an authorised human, decrypts it.
+    """
+
+    __tablename__ = "pii_maps"
+    __table_args__ = (UniqueConstraint("resume_id", name="uq_pii_map_resume"),)
+
+    id: Mapped[uuid.UUID] = _pk()
+    org_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    resume_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("resumes.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    # AES-256-GCM envelope, org_id as AAD. Useless without APP_KEK.
+    ciphertext: Mapped[bytes] = mapped_column(LargeBinary, nullable=False)
+    entity_counts: Mapped[dict[str, object]] = mapped_column(JSONB, nullable=False, default=dict)
     created_at: Mapped[dt.datetime] = _now()

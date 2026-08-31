@@ -36,12 +36,18 @@ nuke: ## Stop and DELETE the database volume
 	docker compose down -v
 
 .PHONY: migrate
-migrate: ## Apply database migrations
-	cd $(API) && POSTGRES_HOST=localhost $(CURDIR)/$(VENV)/alembic upgrade head
+migrate: ## Apply database migrations (from the host, not the image)
+	# Deliberately NOT `docker compose exec api alembic`: migrations are baked
+	# into the image, so running them there silently applies whatever revision
+	# that image was built with. A new migration then appears to have run while
+	# the column it adds does not exist.
+	cd $(API) && POSTGRES_HOST=localhost POSTGRES_PORT=5433 \
+	  $(CURDIR)/$(VENV)/alembic upgrade head
 
 .PHONY: downgrade
 downgrade: ## Roll back one migration (proves downgrade works)
-	cd $(API) && POSTGRES_HOST=localhost $(CURDIR)/$(VENV)/alembic downgrade -1
+	cd $(API) && POSTGRES_HOST=localhost POSTGRES_PORT=5433 \
+	  $(CURDIR)/$(VENV)/alembic downgrade -1
 
 .PHONY: dev
 dev: ## Run the API locally with reload
@@ -88,3 +94,7 @@ seed: ## Seed a dev org with one user per role (synthetic data only)
 .PHONY: verify-audit
 verify-audit: ## Walk the audit hash chain and report any break
 	POSTGRES_HOST=localhost POSTGRES_PORT=5433 $(VENV)/python scripts/verify_audit.py
+
+.PHONY: redact-demo
+redact-demo: ## Show a resume before and after redaction (the README headline)
+	POSTGRES_HOST=localhost POSTGRES_PORT=5433 $(VENV)/python scripts/redaction_demo.py
