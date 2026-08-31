@@ -12,6 +12,9 @@ Marked `integration`; skipped automatically when Docker is unavailable.
 from __future__ import annotations
 
 import itertools
+import os
+import pathlib
+import sys
 import uuid
 from collections.abc import AsyncIterator
 
@@ -20,7 +23,7 @@ import pytest_asyncio
 from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
-from screener_api.models import AuditEvent, Base, Organization, User, UserRole
+from screener_api.models import AuditEvent, Organization, User, UserRole
 from screener_api.security import audit
 from screener_api.security.passwords import hash_password
 
@@ -49,32 +52,43 @@ def postgres():
 
 @pytest_asyncio.fixture
 async def session(postgres) -> AsyncIterator[AsyncSession]:
-    engine = create_async_engine(postgres.get_connection_url())
-    async with engine.begin() as conn:
-        await conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
-        await conn.execute(text("CREATE EXTENSION IF NOT EXISTS pgcrypto"))
-        await conn.run_sync(Base.metadata.drop_all)
-        await conn.run_sync(Base.metadata.create_all)
-        # Recreate the append-only guarantee that migration 0002 installs.
-        await conn.execute(
-            text(
-                """
-                CREATE OR REPLACE FUNCTION audit_events_are_append_only()
-                RETURNS TRIGGER AS $$
-                BEGIN
-                    RAISE EXCEPTION 'audit_events is append-only (attempted %)', TG_OP;
-                END;
-                $$ LANGUAGE plpgsql;
-                DROP TRIGGER IF EXISTS audit_events_no_update_delete ON audit_events;
-                CREATE TRIGGER audit_events_no_update_delete
-                BEFORE UPDATE OR DELETE ON audit_events
-                FOR EACH ROW EXECUTE FUNCTION audit_events_are_append_only();
-                """
-            )
-        )
+    """A database built by the REAL migrations, not by create_all().
+
+    create_all() only knows what the ORM models declare, so everything a
+    migration adds in raw SQL — the tsv generated column, the GIN and HNSW
+    indexes, the append-only trigger, the grants — was simply absent. The suite
+    was testing a schema that does not ship. Running alembic here also means a
+    broken migration fails the test suite rather than production.
+    """
+    import subprocess
+
+    url = postgres.get_connection_url()
+    env = {
+        **os.environ,
+        "DATABASE_URL": url.replace("postgresql+psycopg://", "postgresql+psycopg://"),
+        "APP_ENV": "dev",
+    }
+    result = subprocess.run(
+        [sys.executable, "-m", "alembic", "upgrade", "head"],
+        cwd=pathlib.Path(__file__).resolve().parents[1],
+        env=env,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if result.returncode != 0:
+        pytest.fail(f"alembic upgrade failed:\n{result.stdout}\n{result.stderr}")
+
+    engine = create_async_engine(url)
     maker = async_sessionmaker(engine, expire_on_commit=False)
     async with maker() as s:
         yield s
+        # Leave the schema in place; wipe the data so tests stay independent.
+        await s.rollback()
+        await s.execute(
+            text("TRUNCATE organizations, job_queue, audit_events RESTART IDENTITY CASCADE")
+        )
+        await s.commit()
     await engine.dispose()
 
 
@@ -413,3 +427,192 @@ async def test_purge_cannot_cross_tenants(session: AsyncSession, tmp_path) -> No
 
     with pytest.raises(LookupError):
         await purge_candidate(session, candidate.id, org_id=org_b.id, store=store)
+
+
+# ---- M5: hybrid retrieval and tenant isolation ---------------------------------
+
+
+async def _index_resume(session: AsyncSession, org, text: str, vec_seed: float):
+    """Insert a resume with chunks and deterministic vectors (no model needed)."""
+    from screener_api.models import Candidate, Resume, ResumeChunk, StoredFile
+    from screener_api.retrieval.chunking import chunk_text
+
+    stored = StoredFile(
+        id=uuid.uuid4(),
+        org_id=org.id,
+        sha256=f"{int(vec_seed * 1e6):064d}"[:64],
+        storage_key="x",
+        byte_size=1,
+        mime_sniffed="application/pdf",
+        mime_resolved="application/pdf",
+    )
+    candidate = Candidate(id=uuid.uuid4(), org_id=org.id, pseudonym="C")
+    session.add_all([stored, candidate])
+    await session.flush()
+    resume = Resume(
+        id=uuid.uuid4(),
+        org_id=org.id,
+        candidate_id=candidate.id,
+        file_id=stored.id,
+        parse_status="parsed",
+    )
+    session.add(resume)
+    await session.flush()
+
+    for chunk in chunk_text(text, size=300, overlap=50):
+        session.add(
+            ResumeChunk(
+                id=uuid.uuid4(),
+                org_id=org.id,
+                resume_id=resume.id,
+                chunk_index=chunk.index,
+                text_redacted=chunk.text,
+                char_start=chunk.char_start,
+                char_end=chunk.char_end,
+                section=chunk.section,
+                embedding=[vec_seed] * 384,
+            )
+        )
+    await session.commit()
+    return resume
+
+
+ALPHA_TEXT = (
+    "Senior Backend Engineer building payment services in Python on PostgreSQL. "
+    "Led migration from a monolith to six services using Docker and Kubernetes. "
+    "Experience with Redis, Kafka and distributed tracing at high throughput."
+)
+BETA_TEXT = (
+    "Confidential candidate for ORG_BETA. Staff Frontend Engineer specialising in "
+    "React, TypeScript and design systems. Built accessible component libraries "
+    "and led a rewrite of the marketing site."
+)
+
+
+async def test_vector_search_never_crosses_tenants(session: AsyncSession) -> None:
+    """The isolation guarantee, checked against a live database rather than
+    asserted in prose. Beta's chunks use an IDENTICAL vector to Alpha's, so
+    similarity alone would rank them equally — only the org predicate separates
+    them."""
+    from screener_api.retrieval.search import vector_search
+
+    alpha = await _org(session, "Alpha Ltd")
+    beta = await _org(session, "Beta Ltd")
+    await session.commit()
+    await _index_resume(session, alpha, ALPHA_TEXT, 0.1)
+    await _index_resume(session, beta, BETA_TEXT, 0.1)
+
+    hits = await vector_search(session, org_id=alpha.id, query_vector=[0.1] * 384, limit=50)
+    assert hits, "expected Alpha's own chunks"
+    assert all(h.text not in BETA_TEXT for h in hits)
+    for hit in hits:
+        assert "ORG_BETA" not in hit.text
+
+
+async def test_lexical_search_never_crosses_tenants(session: AsyncSession) -> None:
+    from screener_api.retrieval.search import lexical_search
+
+    alpha = await _org(session, "Alpha Ltd")
+    beta = await _org(session, "Beta Ltd")
+    await session.commit()
+    await _index_resume(session, alpha, ALPHA_TEXT, 0.1)
+    await _index_resume(session, beta, BETA_TEXT, 0.2)
+
+    # A term that appears ONLY in Beta's document.
+    hits = await lexical_search(session, org_id=alpha.id, query="React TypeScript", limit=50)
+    assert hits == [], "lexical search leaked another tenant's chunks"
+
+
+async def test_an_org_with_no_data_gets_nothing(session: AsyncSession) -> None:
+    from screener_api.retrieval.search import lexical_search, vector_search
+
+    alpha = await _org(session, "Alpha Ltd")
+    empty = await _org(session, "Empty Ltd")
+    await session.commit()
+    await _index_resume(session, alpha, ALPHA_TEXT, 0.1)
+
+    assert await vector_search(session, org_id=empty.id, query_vector=[0.1] * 384) == []
+    assert await lexical_search(session, org_id=empty.id, query="Python PostgreSQL") == []
+
+
+async def test_lexical_search_finds_exact_tokens(session: AsyncSession) -> None:
+    """The capability dense retrieval is weakest at, and the reason for running
+    two retrievers rather than one."""
+    from screener_api.retrieval.search import lexical_search
+
+    org = await _org(session, "Search Co")
+    await session.commit()
+    await _index_resume(session, org, ALPHA_TEXT, 0.3)
+
+    assert await lexical_search(session, org_id=org.id, query="Kubernetes")
+    assert await lexical_search(session, org_id=org.id, query="PostgreSQL")
+    assert await lexical_search(session, org_id=org.id, query="quantum chromodynamics") == []
+
+
+async def test_search_can_be_restricted_to_named_resumes(session: AsyncSession) -> None:
+    from screener_api.retrieval.search import lexical_search
+
+    org = await _org(session, "Filter Co")
+    await session.commit()
+    first = await _index_resume(session, org, ALPHA_TEXT, 0.4)
+    await _index_resume(session, org, ALPHA_TEXT + " Extra unique marker phrase.", 0.5)
+
+    unrestricted = await lexical_search(session, org_id=org.id, query="Python", limit=50)
+    restricted = await lexical_search(
+        session, org_id=org.id, query="Python", limit=50, resume_ids=[first.id]
+    )
+    assert len(restricted) < len(unrestricted)
+    assert {h.resume_id for h in restricted} == {first.id}
+
+
+async def test_chunk_offsets_survive_the_round_trip(session: AsyncSession) -> None:
+    """Offsets written to the database must still reproduce the source text —
+    the property M6's evidence verification is built on."""
+    from screener_api.models import ResumeChunk
+
+    org = await _org(session, "Offsets Co")
+    await session.commit()
+    resume = await _index_resume(session, org, ALPHA_TEXT, 0.6)
+
+    chunks = (
+        (
+            await session.execute(
+                select(ResumeChunk)
+                .where(ResumeChunk.resume_id == resume.id)
+                .order_by(ResumeChunk.chunk_index)
+            )
+        )
+        .scalars()
+        .all()
+    )
+    assert chunks
+    for chunk in chunks:
+        assert ALPHA_TEXT[chunk.char_start : chunk.char_end] == chunk.text_redacted
+
+
+async def test_erasure_also_removes_chunks(session: AsyncSession, tmp_path) -> None:
+    """A new table means a new place for residue to hide. AC-14 must still hold."""
+    from sqlalchemy import func
+
+    from screener_api.ingest.storage import BlobStore
+    from screener_api.models import Candidate, ResumeChunk
+    from screener_api.privacy.erasure import purge_candidate
+    from screener_api.security.crypto import derive_kek
+
+    org = await _org(session, "Erase Chunks Co")
+    await session.commit()
+    await _index_resume(session, org, ALPHA_TEXT, 0.7)
+    candidate_id = (
+        (await session.execute(select(Candidate.id).where(Candidate.org_id == org.id)))
+        .scalars()
+        .first()
+    )
+
+    assert (await session.execute(select(func.count()).select_from(ResumeChunk))).scalar_one() > 0
+
+    store = BlobStore(tmp_path / "chunks", kek=derive_kek("s", 1), kek_version=1)
+    await purge_candidate(session, candidate_id, org_id=org.id, store=store)
+    await session.commit()
+
+    remaining = (await session.execute(select(func.count()).select_from(ResumeChunk))).scalar_one()
+    assert remaining == 0, f"{remaining} chunk(s) survived erasure"

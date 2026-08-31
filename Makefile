@@ -82,7 +82,7 @@ spike: ## Re-run the M6 model spike (needs ollama)
 .PHONY: check
 check: lint test sec ## Everything CI runs
 lock: ## Regenerate the hash-pinned lock for the runtime platform
-	cd $(API) && uv pip compile pyproject.toml --generate-hashes --python-platform x86_64-manylinux2014 --python-version 3.12 -o requirements.lock
+	cd $(API) && uv pip compile pyproject.toml --generate-hashes --python-platform x86_64-manylinux_2_28 --python-version 3.12 -o requirements.lock
 
 .PHONY: lock
 

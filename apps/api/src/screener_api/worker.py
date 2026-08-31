@@ -34,6 +34,7 @@ from screener_api.queue import (
     fail,
     reclaim_expired_leases,
 )
+from screener_api.retrieval.pipeline import handle_embed_job
 from screener_api.security.crypto import derive_kek
 from screener_api.settings import get_settings
 
@@ -107,6 +108,8 @@ async def run() -> int:
                         kek=kek,
                         kek_version=settings.app_kek_version,
                     )
+                elif job.job_type == str(JobType.EMBED):
+                    await handle_embed_job(session, dict(job.payload))
                 else:
                     raise TerminalError(f"no handler for job type {job.job_type}")
                 await complete(session, job)

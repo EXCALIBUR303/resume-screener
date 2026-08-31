@@ -25,7 +25,7 @@ from screener_api.parse.extract import (
 from screener_api.parse.ocr import is_low_confidence, ocr_pdf
 from screener_api.parse.sections import detect_language, segment
 from screener_api.privacy.redact import redact
-from screener_api.queue import TerminalError
+from screener_api.queue import JobType, TerminalError, enqueue, idempotency_key
 from screener_api.security.crypto import encrypt
 
 log = structlog.get_logger()
@@ -171,6 +171,20 @@ async def handle_parse_job(
 
     resume.redacted_at = dt.datetime.now(dt.UTC)
     resume.needs_manual_review = outcome.needs_manual_review
+
+    # Chain to embedding in the same transaction: a redacted resume is never
+    # left un-indexed, and an embed job never references un-redacted text.
+    await enqueue(
+        session,
+        job_type=JobType.EMBED,
+        payload={"resume_id": str(resume_id)},
+        key=idempotency_key(
+            str(JobType.EMBED),
+            input_digest=stored.sha256,
+            pipeline_version=PIPELINE_VERSION,
+        ),
+        org_id=resume.org_id,
+    )
 
     log.info(
         "redaction.completed",

@@ -24,9 +24,16 @@ COPY --from=deps /usr/local/lib/python3.12/site-packages /usr/local/lib/python3.
 COPY --from=deps /usr/local/bin /usr/local/bin
 RUN python -m spacy download en_core_web_sm
 
+# The embedding model, likewise baked in: this container has no network at
+# runtime and fastembed would otherwise try to fetch weights on first use.
+ENV FASTEMBED_CACHE_PATH=/opt/models
+RUN mkdir -p /opt/models \
+ && python -c "from fastembed import TextEmbedding; \
+TextEmbedding(model_name='BAAI/bge-small-en-v1.5', cache_dir='/opt/models')"
+
 RUN useradd --create-home --uid 10002 worker
 COPY --chown=worker:worker apps/api/src ./src
-RUN mkdir -p /data/files && chown -R worker:worker /data
+RUN mkdir -p /data/files && chown -R worker:worker /data /opt/models
 ENV PYTHONPATH=/app/src
 USER worker
 CMD ["python", "-m", "screener_api.worker"]

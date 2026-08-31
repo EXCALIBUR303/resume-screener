@@ -5,6 +5,7 @@ from __future__ import annotations
 import datetime as dt
 import uuid
 
+from pgvector.sqlalchemy import Vector
 from sqlalchemy import (
     Boolean,
     DateTime,
@@ -319,4 +320,32 @@ class PiiMap(Base):
     # AES-256-GCM envelope, org_id as AAD. Useless without APP_KEK.
     ciphertext: Mapped[bytes] = mapped_column(LargeBinary, nullable=False)
     entity_counts: Mapped[dict[str, object]] = mapped_column(JSONB, nullable=False, default=dict)
+    created_at: Mapped[dt.datetime] = _now()
+
+
+class ResumeChunk(Base):
+    """One retrievable slice of a redacted resume.
+
+    Nothing in this table has ever seen raw PII, which is what makes it safe to
+    index and search. ``char_start``/``char_end`` point into
+    ``resume_texts.text_redacted`` and must stay exact — M6 verifies quoted
+    evidence against them.
+    """
+
+    __tablename__ = "resume_chunks"
+    __table_args__ = (UniqueConstraint("resume_id", "chunk_index", name="uq_chunk_per_resume"),)
+
+    id: Mapped[uuid.UUID] = _pk()
+    org_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    resume_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("resumes.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    chunk_index: Mapped[int] = mapped_column(Integer, nullable=False)
+    text_redacted: Mapped[str] = mapped_column(Text, nullable=False)
+    char_start: Mapped[int] = mapped_column(Integer, nullable=False)
+    char_end: Mapped[int] = mapped_column(Integer, nullable=False)
+    section: Mapped[str | None] = mapped_column(String(40), nullable=True)
+    embedding: Mapped[list[float] | None] = mapped_column(Vector(384), nullable=True)
     created_at: Mapped[dt.datetime] = _now()
