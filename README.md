@@ -341,6 +341,10 @@ and whether the strongest claim holds, so nobody has to take the README's word f
 - **Synthetic data only.** Every fixture is generated; a CI check enforces the marker.
 - **Evaluation is constructed**, so it measures whether the system does what it was designed to
   do — not whether the design is right.
+- **The backup drill ran against a development stack**, with synthetic data and dev-sized
+  volumes. Encryption, decryption, restore and blob integrity were all exercised
+  ([runbook](docs/runbook.md#backup-and-restore)); the timings and volumes are not
+  representative of anything real.
 - **No auto-reject path exists.** There is no state transition from `scored` to `rejected`
   anywhere in the code. The absence is the control.
 

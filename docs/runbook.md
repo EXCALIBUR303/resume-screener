@@ -216,23 +216,66 @@ docker compose exec -T db psql -U screener -d screener -c \
 **Run monthly.** An untested backup is not a backup.
 
 ```bash
-AGE_RECIPIENT=age1... ./scripts/backup.sh     # encrypted
+age-keygen -o backup.key                       # once; keep it OFF this machine
+AGE_RECIPIENT=age1... ./scripts/backup.sh      # encrypted
 ./scripts/backup.sh                            # warns loudly if unencrypted
 ```
 
-Restore goes to a **scratch database** and refuses to overwrite the live one:
+Restore goes to a **scratch database** and refuses to overwrite the live one.
+It decrypts `.age` archives itself, given the private key:
 
 ```bash
-./scripts/restore.sh backups/db-<stamp>.dump
+AGE_IDENTITY=backup.key ./scripts/restore.sh backups/db-<stamp>.dump.age
 ```
 
-**Executed 2026-09-01.** Restored into `screener_restore_test` and verified:
-2 organizations, 5 users, 54 resumes, 50 chunks, 4 matches, 27 audit events.
-Drop the scratch database afterwards.
+**Executed 2026-09-01, encryption included.** Backed up 3 organizations,
+5 users, 74 resumes, 74 chunks, 5 audit events and 24 outbox events; encrypted
+both archives with age; restored into `screener_restore_test` from the
+**ciphertext** and got identical counts back, with all 5 audit events carrying
+a well-formed hash.
 
-⚠️ Encryption is **not** yet exercised: `age` was not configured on the machine
-where this was run, so the drill covered the dump and restore path only. Set
-`AGE_RECIPIENT` and repeat before relying on encrypted backups.
+Four negative controls, run rather than assumed:
+
+| what was tried | result |
+| --- | --- |
+| restore with the wrong private key | refused, exit 1 |
+| restore a truncated archive | refused, exit 1 |
+| restore an empty file | refused before touching the database |
+| backup while the database is stopped | failed, and left **no file** in `backups/` |
+
+### What the first drill missed
+
+The previous entry said encryption was "not yet exercised". Exercising it found
+that the documented procedure could not work:
+
+- **`restore.sh` could not read an encrypted backup.** It piped the file
+  straight to `pg_restore`, which answered *"input file does not appear to be a
+  valid archive"*. The runbook told you to encrypt with one script and restore
+  with the other, and the two halves had never met.
+- **A failed backup left a 0-byte `.dump` behind.** The shell creates a
+  redirect target before `pg_dump` runs, so a backup that died immediately still
+  produced a file that looks exactly like a backup. Anyone taking the newest
+  dump would have found it.
+- **`pg_restore` failures were swallowed** by `|| true`, so a half-restored
+  database still reached the verification step and printed plausible counts.
+
+`backup.sh` now stages to a temp directory, verifies the archive with
+`pg_restore --list` before publishing it, and moves it into place only when
+good. `restore.sh` takes `AGE_IDENTITY`, decrypts into a `chmod 700` temp
+directory removed by a `trap`, and uses `--exit-on-error`.
+
+The blob archive was checked with content in it, not just structurally: a known
+file was placed in the store, backed up, encrypted, decrypted and extracted, and
+came back with an identical SHA-256.
+
+```
+7363d250eb915a922769f7031edce1c5e2474b82ee18f401372823932d5b1519  drill.bin   (before)
+7363d250eb915a922769f7031edce1c5e2474b82ee18f401372823932d5b1519  drill.bin   (restored)
+```
+
+⚠️ One gap remains, stated rather than glossed: this drill ran against a
+**development** stack with synthetic data. The volumes, the dataset size and the
+time a dump takes are all unrepresentative of anything real.
 
 ---
 
