@@ -12,10 +12,12 @@ Two properties that matter:
 
 from __future__ import annotations
 
+import contextlib
 import re
 import shutil
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any, Protocol, runtime_checkable
 
 from screener_api.security.crypto import Envelope, decrypt, encrypt, sha256_hex
 
@@ -31,6 +33,24 @@ class StoredBlob:
     sha256: str
     storage_key: str
     byte_size: int
+
+
+@runtime_checkable
+class ObjectStore(Protocol):
+    """What the pipeline needs from a blob store, and nothing more.
+
+    Two implementations: local disk for development, S3-compatible for cloud
+    hosts whose container filesystems are ephemeral. Encryption happens in this
+    layer either way — the bucket never sees plaintext, so a misconfigured
+    bucket policy leaks ciphertext rather than resumes.
+    """
+
+    def put_quarantine(self, data: bytes, *, org_id: str) -> StoredBlob: ...
+    def promote(self, digest: str) -> None: ...
+    def discard(self, digest: str) -> None: ...
+    def exists(self, digest: str) -> bool: ...
+    def get(self, digest: str, *, org_id: str) -> bytes: ...
+    def delete(self, digest: str) -> None: ...
 
 
 class BlobStore:
@@ -102,3 +122,87 @@ class BlobStore:
         """Hard delete, for the erasure path. Both locations, no tombstone file."""
         for base in (self.clean, self.quarantine):
             self._path(base, digest).unlink(missing_ok=True)
+
+
+class S3BlobStore:
+    """S3-compatible object storage, for hosts with ephemeral disks.
+
+    The same content-addressed keys and the same envelope encryption as the
+    local store: bytes are encrypted before they leave this process, so the
+    provider holds ciphertext and nothing else. Quarantine and clean are key
+    prefixes rather than directories, and promotion is a server-side copy.
+    """
+
+    def __init__(
+        self,
+        bucket: str,
+        *,
+        kek: bytes,
+        kek_version: int,
+        endpoint_url: str | None = None,
+        client: Any | None = None,
+    ) -> None:
+        self.bucket = bucket
+        self._kek = kek
+        self._kek_version = kek_version
+        if client is not None:
+            self._s3 = client
+        else:
+            import boto3
+
+            self._s3 = boto3.client("s3", endpoint_url=endpoint_url or None)
+
+    @staticmethod
+    def _key(prefix: str, digest: str) -> str:
+        # Reuses the local store's validation, so a non-digest can never become
+        # an object key any more than it can become a path.
+        return f"{prefix}/{BlobStore.key_for(digest)}"
+
+    def put_quarantine(self, data: bytes, *, org_id: str) -> StoredBlob:
+        digest = sha256_hex(data)
+        envelope = encrypt(data, kek=self._kek, kek_version=self._kek_version, aad=org_id.encode())
+        self._s3.put_object(
+            Bucket=self.bucket,
+            Key=self._key("quarantine", digest),
+            Body=envelope.to_bytes(),
+        )
+        return StoredBlob(sha256=digest, storage_key=BlobStore.key_for(digest), byte_size=len(data))
+
+    def promote(self, digest: str) -> None:
+        source = self._key("quarantine", digest)
+        self._s3.copy_object(
+            Bucket=self.bucket,
+            CopySource={"Bucket": self.bucket, "Key": source},
+            Key=self._key("clean", digest),
+        )
+        self._s3.delete_object(Bucket=self.bucket, Key=source)
+
+    def discard(self, digest: str) -> None:
+        self._s3.delete_object(Bucket=self.bucket, Key=self._key("quarantine", digest))
+
+    def exists(self, digest: str) -> bool:
+        try:
+            self._s3.head_object(Bucket=self.bucket, Key=self._key("clean", digest))
+        except Exception:
+            return False
+        return True
+
+    def get(self, digest: str, *, org_id: str) -> bytes:
+        try:
+            body = self._s3.get_object(Bucket=self.bucket, Key=self._key("clean", digest))[
+                "Body"
+            ].read()
+        except Exception as exc:
+            raise StorageError(f"no clean object for {digest[:16]}…") from exc
+
+        plaintext = decrypt(Envelope.from_bytes(body), kek=self._kek, aad=org_id.encode())
+        if sha256_hex(plaintext) != digest:
+            raise StorageError("content address does not match decrypted bytes")
+        return plaintext
+
+    def delete(self, digest: str) -> None:
+        for prefix in ("clean", "quarantine"):
+            # Deleting an absent object is success, not failure: erasure must
+            # be idempotent or a partially-completed purge can never finish.
+            with contextlib.suppress(Exception):
+                self._s3.delete_object(Bucket=self.bucket, Key=self._key(prefix, digest))

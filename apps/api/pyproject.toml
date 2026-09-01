@@ -45,6 +45,9 @@ dependencies = [
     "prometheus-client>=0.21",
     "opentelemetry-api>=1.29",
     "opentelemetry-sdk>=1.29",
+    # S3-compatible object storage for cloud mode, where container disks are
+    # ephemeral. Works against R2, Supabase Storage, Backblaze B2 and MinIO.
+    "boto3>=1.35",
 ]
 
 [project.optional-dependencies]
@@ -94,7 +97,7 @@ packages = ["screener_api"]
 module = [
     "alembic.*", "pytesseract.*", "pdf2image.*", "langdetect.*",
     "defusedxml.*", "presidio_analyzer.*", "presidio_anonymizer.*", "spacy.*",
-    "fastembed.*", "prometheus_client.*", "opentelemetry.*",
+    "fastembed.*", "prometheus_client.*", "opentelemetry.*", "boto3.*", "botocore.*",
 ]
 ignore_missing_imports = true
 

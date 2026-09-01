@@ -127,6 +127,12 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             "status": "ok" if version else "degraded",
             "database": "ok",
             "pgvector": version or "missing",
+            "deployment_mode": settings.deployment_mode,
+            # Surfaced because the security claim differs between modes. An
+            # operator looking at a deployed instance should be able to see
+            # which guarantees actually hold there, not read the README and
+            # assume.
+            "parse_worker_network_isolated": settings.worker_parse_is_network_isolated,
         }
 
     return app

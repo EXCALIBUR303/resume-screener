@@ -185,6 +185,12 @@ make check          # lint, types, 413 tests, security scanners
 
 Requires Docker and [Ollama](https://ollama.com). `ollama pull qwen3:8b` for the local model.
 
+**Deploying it** is documented in [`docs/deployment.md`](docs/deployment.md), including the
+part that matters: cloud mode is **genuinely weaker**. Managed Postgres is TCP-only, so the
+parse worker cannot keep `network_mode: none` there. `/readyz` reports which mode is running
+and whether the strongest claim holds, so nobody has to take the README's word for it
+([ADR-0016](docs/adr/0016-cloud-mode-is-explicitly-weaker.md)).
+
 ---
 
 ## Demo script

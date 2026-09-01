@@ -162,3 +162,121 @@ def test_no_partial_files_are_left_behind(store: BlobStore, tmp_path: Path) -> N
     """Writes are atomic: a reader never sees a half-written blob."""
     store.put_quarantine(b"data", org_id="org-1")
     assert not list((tmp_path / "files").rglob("*.part"))
+
+
+# ---- S3 backend ---------------------------------------------------------------
+
+
+class FakeS3:
+    """An in-memory stand-in for S3. Enough of the API to exercise the store.
+
+    A fake rather than moto: the point is to test OUR logic — key derivation,
+    encryption placement, promotion semantics — not to re-test boto3.
+    """
+
+    def __init__(self) -> None:
+        self.objects: dict[str, bytes] = {}
+
+    def put_object(self, *, Bucket: str, Key: str, Body: bytes) -> None:  # noqa: N803
+        self.objects[f"{Bucket}/{Key}"] = Body
+
+    def get_object(self, *, Bucket: str, Key: str) -> dict:  # noqa: N803
+        import io
+
+        data = self.objects[f"{Bucket}/{Key}"]
+        return {"Body": io.BytesIO(data)}
+
+    def head_object(self, *, Bucket: str, Key: str) -> dict:  # noqa: N803
+        if f"{Bucket}/{Key}" not in self.objects:
+            raise KeyError(Key)
+        return {}
+
+    def copy_object(self, *, Bucket: str, CopySource: dict, Key: str) -> None:  # noqa: N803
+        self.objects[f"{Bucket}/{Key}"] = self.objects[
+            f"{CopySource['Bucket']}/{CopySource['Key']}"
+        ]
+
+    def delete_object(self, *, Bucket: str, Key: str) -> None:  # noqa: N803
+        self.objects.pop(f"{Bucket}/{Key}", None)
+
+
+@pytest.fixture
+def s3_store():
+    from screener_api.ingest.storage import S3BlobStore
+
+    fake = FakeS3()
+    store = S3BlobStore("bucket", kek=KEK_A, kek_version=1, client=fake)
+    return store, fake
+
+
+def test_s3_quarantine_then_promote(s3_store) -> None:
+    store, _ = s3_store
+    data = b"%PDF-1.4 synthetic"
+    blob = store.put_quarantine(data, org_id="org-1")
+    assert not store.exists(blob.sha256), "must not be readable before promotion"
+    store.promote(blob.sha256)
+    assert store.exists(blob.sha256)
+    assert store.get(blob.sha256, org_id="org-1") == data
+
+
+def test_s3_bucket_only_ever_holds_ciphertext(s3_store) -> None:
+    """The provider must never see plaintext. A misconfigured bucket policy then
+    leaks ciphertext rather than resumes."""
+    store, fake = s3_store
+    store.put_quarantine(b"Priya Ramanathan priya@example.com", org_id="org-1")
+    for body in fake.objects.values():
+        assert b"Priya" not in body
+        assert b"example.com" not in body
+
+
+def test_s3_another_org_cannot_decrypt(s3_store) -> None:
+    store, _ = s3_store
+    blob = store.put_quarantine(b"confidential", org_id="org-1")
+    store.promote(blob.sha256)
+    with pytest.raises(DecryptionError):
+        store.get(blob.sha256, org_id="org-2")
+
+
+def test_s3_keys_are_content_addressed(s3_store) -> None:
+    store, fake = s3_store
+    blob = store.put_quarantine(b"deterministic", org_id="org-1")
+    key = next(iter(fake.objects))
+    assert blob.sha256 in key
+    assert key.startswith(f"bucket/quarantine/{blob.sha256[:2]}/")
+
+
+def test_s3_promotion_removes_the_quarantine_copy(s3_store) -> None:
+    store, fake = s3_store
+    blob = store.put_quarantine(b"data", org_id="org-1")
+    store.promote(blob.sha256)
+    assert not any("quarantine" in k for k in fake.objects)
+
+
+def test_s3_delete_is_idempotent(s3_store) -> None:
+    """Erasure must be repeatable, or a partially-completed purge can never be
+    finished."""
+    store, _ = s3_store
+    blob = store.put_quarantine(b"erase me", org_id="org-1")
+    store.promote(blob.sha256)
+    store.delete(blob.sha256)
+    store.delete(blob.sha256)
+    assert not store.exists(blob.sha256)
+
+
+def test_s3_rejects_a_non_digest_key(s3_store) -> None:
+    from screener_api.ingest.storage import S3BlobStore
+
+    _store, _ = s3_store
+    for bad in ("../../etc/passwd", "not-hex", ""):
+        with pytest.raises(StorageError):
+            S3BlobStore._key("clean", bad)
+
+
+def test_both_stores_satisfy_the_protocol(tmp_path) -> None:
+    """The pipeline depends on the protocol, not on either implementation."""
+    from screener_api.ingest.storage import ObjectStore, S3BlobStore
+
+    local = BlobStore(tmp_path / "f", kek=KEK_A, kek_version=1)
+    remote = S3BlobStore("b", kek=KEK_A, kek_version=1, client=FakeS3())
+    assert isinstance(local, ObjectStore)
+    assert isinstance(remote, ObjectStore)

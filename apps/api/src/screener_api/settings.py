@@ -95,6 +95,14 @@ class Settings(BaseSettings):
     # Off unless explicitly enabled, and documented as internal-network-only.
     metrics_enabled: bool = True
 
+    # "local" keeps the strongest posture: worker-parse runs with
+    # network_mode: none and reaches Postgres over a unix socket (ADR-0008).
+    # "cloud" cannot: managed Postgres is TCP-only, so the parse worker needs a
+    # network and the isolation guarantee is strictly weaker. Making this an
+    # explicit mode rather than an emergent consequence of other settings means
+    # the downgrade is a decision someone made, not something that happened.
+    deployment_mode: Literal["local", "cloud"] = "local"
+
     ocr_enabled: bool = True
     ocr_min_confidence: int = 60
     parse_timeout_seconds: int = 60
@@ -108,6 +116,23 @@ class Settings(BaseSettings):
     # Deliberately a plain property, NOT a computed_field: a computed_field is
     # included in repr() and model_dump(), which would re-expose the password
     # that SecretStr exists to hide. Caught by test_secrets_do_not_leak_through_repr.
+    @property
+    def worker_parse_is_network_isolated(self) -> bool:
+        """Whether the deployment CLAIMS the strongest isolation guarantee.
+
+        Derived from deployment_mode alone, and deliberately so. The first
+        version also checked `postgres_socket_dir` — but that is *this*
+        process's setting, and the API does not use the socket, so a
+        correctly-configured local stack reported `false`. A process cannot
+        observe another container's network from its own environment.
+
+        What actually enforces the guarantee is the compose file, and what
+        verifies it is `test_worker_parse_declares_no_network`, which reads
+        that file, plus the live probe recorded in ADR-0008. This property
+        reports which mode is deployed; it is not evidence on its own.
+        """
+        return self.deployment_mode == "local"
+
     @property
     def cors_origins(self) -> list[str]:
         return [o.strip() for o in self.cors_allowed_origins.split(",") if o.strip()]
