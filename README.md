@@ -146,15 +146,17 @@ Golden set v1: 50 synthetic resumes × 8 job descriptions = 400 pairs.
 | retriever | nDCG@10 | P@5 | Recall@20 | MRR |
 |---|---|---|---|---|
 | vector | 0.812 | 0.550 | 0.975 | 0.792 |
-| lexical | **0.915** | **0.675** | 1.000 | 0.917 |
-| hybrid | 0.907 | 0.650 | 1.000 | **1.000** |
+| lexical | **0.927** | **0.675** | 1.000 | 0.938 |
+| hybrid | 0.902 | 0.675 | 1.000 | **0.938** |
 
 **Read this honestly.** Labels are *derived from construction*, not human judgment — see
 [`evals/README.md`](evals/README.md) for what that buys and costs. Hybrid retrieval **does not**
 beat lexical on nDCG@10 here; the corpus writes skill names literally and so favours exact
-matching. Hybrid does rank a relevant candidate first for **every** job description, which
-neither retriever alone manages. That is the only claim this evidence supports, and it is the
-only one made.
+matching. Hybrid does not beat lexical on MRR either once the ordering is made reproducible — they tie
+at 0.938. The earlier MRR 1.000 for hybrid was an artefact of unstable tie-breaking, not a
+result. **On this corpus hybrid retrieval is not measurably better than lexical search alone.**
+It is kept for the reason given in [ADR-0015](docs/adr/0015-retrieval-measured.md), not because
+the numbers support it.
 
 There is no accuracy percentage anywhere in this project.
 

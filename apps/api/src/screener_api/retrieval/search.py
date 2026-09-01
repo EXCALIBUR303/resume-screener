@@ -67,7 +67,9 @@ async def vector_search(
                  WHERE org_id = :org
                    AND embedding IS NOT NULL
                    AND (NOT :filter_resumes OR resume_id = ANY(:resume_ids))
-                 ORDER BY embedding <=> :qv
+                 -- Same reasoning as lexical_search: cosine ties are rarer but
+                 -- not impossible, and determinism is cheap.
+                 ORDER BY embedding <=> :qv, resume_id, chunk_index
                  LIMIT :lim
                 """
             ),
@@ -193,7 +195,17 @@ async def lexical_search(
                  WHERE org_id = :org
                    AND tsv @@ q
                    AND (NOT :filter_resumes OR resume_id = ANY(:resume_ids))
-                 ORDER BY rank DESC
+                 -- ts_rank_cd produces MANY ties across short chunks, and with
+                 -- no stable secondary sort Postgres returns them in arbitrary
+                 -- order: nDCG@10 swung 0.076 between machines on identical
+                 -- code, larger than the 0.03 regression tolerance, so the gate
+                 -- could detect nothing.
+                 --
+                 -- The tiebreak must be on DERIVED columns. Ordering by `id`
+                 -- looked stable and was not — it is a fresh uuid4 per row, so
+                 -- results still moved between runs. (resume_id, chunk_index)
+                 -- is reproducible for the same corpus.
+                 ORDER BY rank DESC, resume_id, chunk_index
                  LIMIT :lim
                 """
             ),

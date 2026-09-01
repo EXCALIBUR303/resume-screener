@@ -616,3 +616,33 @@ async def test_erasure_also_removes_chunks(session: AsyncSession, tmp_path) -> N
 
     remaining = (await session.execute(select(func.count()).select_from(ResumeChunk))).scalar_one()
     assert remaining == 0, f"{remaining} chunk(s) survived erasure"
+
+
+async def test_retrieval_order_is_reproducible(session: AsyncSession) -> None:
+    """Ties must break on DERIVED columns, or the eval harness is noise.
+
+    ts_rank_cd produces many ties across short chunks. With no stable secondary
+    sort, nDCG@10 swung 0.076 between machines and 0.017 between consecutive
+    runs on one machine — both larger than the 0.03 regression tolerance, which
+    made AC-10 incapable of detecting anything.
+
+    The first fix ordered by `id` and did NOT work: id is a fresh uuid4 per row,
+    so it is stable within a run and random across runs. (resume_id,
+    chunk_index) is derived and therefore reproducible.
+    """
+    from screener_api.retrieval.search import lexical_search, vector_search
+
+    org = await _org(session, "Determinism Co")
+    await session.commit()
+    # Several near-identical documents, so ts_rank_cd ties are guaranteed.
+    for i in range(6):
+        await _index_resume(session, org, ALPHA_TEXT, 0.1 + i * 0.01)
+
+    first = await lexical_search(session, org_id=org.id, query="Python PostgreSQL", limit=20)
+    second = await lexical_search(session, org_id=org.id, query="Python PostgreSQL", limit=20)
+    assert [h.chunk_id for h in first] == [h.chunk_id for h in second]
+
+    qv = [0.15] * 384
+    v1 = await vector_search(session, org_id=org.id, query_vector=qv, limit=20)
+    v2 = await vector_search(session, org_id=org.id, query_vector=qv, limit=20)
+    assert [h.chunk_id for h in v1] == [h.chunk_id for h in v2]
