@@ -79,6 +79,17 @@ def _parse_front_matter(raw: str) -> tuple[dict[str, Any], str]:
 
 
 @lru_cache(maxsize=32)
+def active_version(name: str, pinned: int | None) -> int:
+    """The version to use: an explicit pin, or the highest on disk.
+
+    Exists so "which prompt is running" is a decision rather than a consequence
+    of which files happen to be in the directory. Prompt files are immutable
+    once committed (rule D-12), but `latest_version` is implicit — so adding a
+    file to run an experiment silently promotes it.
+    """
+    return pinned if pinned is not None else latest_version(name)
+
+
 def load(name: str, version: int, *, base: Path | None = None) -> PromptTemplate:
     path = (base or PROMPTS_DIR) / name / f"v{version}.md"
     raw = path.read_text(encoding="utf-8")

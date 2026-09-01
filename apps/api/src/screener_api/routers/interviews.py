@@ -13,7 +13,7 @@ from screener_api.db import get_session
 from screener_api.interview.pipeline import generate_guide
 from screener_api.llm.factory import build_gateway
 from screener_api.llm.gateway import SchemaViolationError
-from screener_api.llm.prompts import latest_version, load
+from screener_api.llm.prompts import active_version, load
 from screener_api.llm.provider import LLMError
 from screener_api.queue import TerminalError
 from screener_api.security import audit
@@ -58,7 +58,10 @@ async def create_guide(
     actor: Annotated[Actor, requires(Permission.INTERVIEW_WRITE)],
     count: int = 8,
 ) -> GuideOut:
-    prompt = load("interview_questions", latest_version("interview_questions"))
+    prompt = load(
+        "interview_questions",
+        active_version("interview_questions", settings.llm_prompt_version),
+    )
     try:
         guide = await generate_guide(
             session,

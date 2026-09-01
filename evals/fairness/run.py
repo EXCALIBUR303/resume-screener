@@ -66,8 +66,12 @@ def variant_key(v: Variant) -> str:
 
 
 async def _reset(session) -> None:
-    for table in ("matches", "resume_chunks", "resume_texts", "resumes",
-                  "candidates", "files", "job_postings"):
+    # outbox_events is in the list because the scoring pipeline now writes one
+    # per score (ADR-0018). Without it a rerun leaves the previous run's events
+    # behind and the relay keeps finding work that describes rows that no
+    # longer exist.
+    for table in ("matches", "outbox_events", "resume_chunks", "resume_texts",
+                  "resumes", "candidates", "files", "job_postings"):
         await session.execute(text(f"DELETE FROM {table} WHERE org_id = :org"),  # noqa: S608
                               {"org": ORG_ID})
     await session.execute(

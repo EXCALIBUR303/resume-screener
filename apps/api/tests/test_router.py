@@ -168,3 +168,33 @@ def test_the_factory_builds_a_router_when_a_fallback_is_configured() -> None:
     assert len(provider.routes) == 2
     # Distinct breaker objects, not one shared instance.
     assert provider.routes[0].breaker is not provider.routes[1].breaker
+
+
+# --------------------------------------------------------------------------- #
+#  Which prompt is actually running
+# --------------------------------------------------------------------------- #
+
+
+def test_the_active_prompt_version_defaults_to_the_latest_on_disk() -> None:
+    from screener_api.llm.prompts import active_version, latest_version
+
+    assert active_version("match_score", None) == latest_version("match_score")
+
+
+def test_an_explicit_pin_wins_over_whatever_is_on_disk() -> None:
+    """Prompt files are immutable once committed, but `latest` is implicit — so
+    ADDING a file is a deploy. Writing v2 to run an A/B changed what the worker
+    scores with, without a code change and without review. The experiment won
+    (ADR-0021), so the promotion was correct; it should not have been an
+    accident."""
+    from screener_api.llm.prompts import active_version, latest_version
+
+    assert latest_version("match_score") >= 2
+    assert active_version("match_score", 1) == 1
+
+
+def test_the_pin_is_off_by_default_so_behaviour_is_unchanged() -> None:
+    from screener_api.settings import Settings
+
+    settings = Settings(app_env="dev", postgres_password="x", app_kek="x", jwt_secret="x")
+    assert settings.llm_prompt_version is None

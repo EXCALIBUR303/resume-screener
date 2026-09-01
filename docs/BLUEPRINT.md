@@ -680,6 +680,31 @@ Audio answers via `faster-whisper` · adverse-impact ratio dashboard on syntheti
 prompt A/B · transactional outbox + webhooks · model router with fallback · SBOM + image signing ·
 ABAC. Each as its own PR + ADR.
 
+> **Status, 2026-09-01.** Six of seven shipped, and two of them turned out
+> differently from the plan above.
+>
+> - **Counterfactual fairness probe** in place of an "adverse-impact dashboard".
+>   The AIR is computed and reported, but where invariance holds it is 1.0 by
+>   arithmetic necessity, so the probe leads with the measurement that actually
+>   discriminates. It found nine defects on its first run
+>   ([ADR-0017](adr/0017-redaction-was-not-name-invariant.md)).
+> - **Transactional outbox + webhooks** —
+>   [ADR-0018](adr/0018-transactional-outbox-and-webhook-egress.md).
+> - **Model router with fallback** —
+>   [ADR-0019](adr/0019-model-fallback-and-answered-by-provenance.md).
+> - **ABAC + SBOM** — [ADR-0020](adr/0020-attribute-scoped-match-access.md).
+>   Image signing is written and has never run: a signature only means something
+>   for an artifact in a registry, and publishing one is the owner's call.
+> - **Prompt A/B without Langfuse** —
+>   [ADR-0021](adr/0021-prompt-ab-against-a-real-model.md). Self-hosting Langfuse
+>   is four services against a constraint that forbids hidden ongoing costs, and
+>   what it would buy is a script. The script exists and runs against a real
+>   local model.
+> - **Audio answers via `faster-whisper` — not built.** It is the one item that
+>   adds a modality rather than depth, and "multi-modal" is already defined in
+>   §N.6 as text plus scanned image. Nothing in the repository claims audio
+>   works; the feature flag `FEATURE_AUDIO_ANSWERS` remains `false`.
+
 **Totals.** MVP (M0–M6, M9 thin) ≈ **90–110 h**. V1 (+M7, M8, M9 full, M10, M13, optionally
 M11–M12) ≈ **190–230 h** cumulative.
 

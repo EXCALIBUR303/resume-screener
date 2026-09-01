@@ -24,7 +24,7 @@ import structlog
 from screener_api.db import dispose_engine, init_engine
 from screener_api.ingest.storage import BlobStore
 from screener_api.llm.factory import build_gateway
-from screener_api.llm.prompts import latest_version, load
+from screener_api.llm.prompts import active_version, load
 from screener_api.logging import configure_logging
 from screener_api.parse.pipeline import handle_parse_job
 from screener_api.queue import (
@@ -89,7 +89,7 @@ async def run() -> int:
     # Built once per process: the gateway carries the token budget and circuit
     # breaker, which must be shared across jobs to mean anything.
     gateway = build_gateway(settings)
-    prompt = load("match_score", latest_version("match_score"))
+    prompt = load("match_score", active_version("match_score", settings.llm_prompt_version))
     log.info(
         "worker.started",
         worker=worker_id,

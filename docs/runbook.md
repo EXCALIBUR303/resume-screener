@@ -12,6 +12,7 @@ an untested procedure is a guess with formatting.
 - [Redaction stopped](#redaction-stopped)
 - [Model unavailable](#model-unavailable)
 - [Evidence zeroed](#evidence-zeroed)
+- [Webhooks not arriving](#webhooks-not-arriving)
 - [Backup and restore](#backup-and-restore)
 - [Rotating the KEK](#rotating-the-kek)
 - [Rolling back a deploy](#rolling-back-a-deploy)
@@ -152,6 +153,61 @@ SELECT model_id, prompt_version, count(*),
        avg((rubric->>'aggregate_groundedness')::float)
   FROM matches GROUP BY 1, 2 ORDER BY 3 DESC;
 ```
+
+---
+
+## Webhooks not arriving
+
+A tenant says they stopped receiving events. Three different faults look
+identical from outside, so check them in this order.
+
+```bash
+# 1. Is the relay running at all? Events pile up as 'pending' when it is not.
+docker compose ps worker-webhook
+docker compose exec -T db psql -U screener -d screener -c \
+  "SELECT status, count(*) FROM outbox_events GROUP BY status ORDER BY 2 DESC;"
+```
+
+A large `pending` count with the relay down means **nothing was lost** — the
+events are durable and will drain when it starts. That is the outbox doing its
+job (ADR-0018).
+
+```bash
+# 2. Was their endpoint disabled? It is after 20 consecutive failures, or the
+#    moment its URL stops passing the SSRF check.
+docker compose exec -T db psql -U screener -d screener -c \
+  "SELECT id, left(url, 50), is_active, consecutive_failures, disabled_reason
+     FROM webhook_endpoints WHERE org_id = '<ORG>';"
+```
+
+`disabled_reason` distinguishes the two cases. `destination refused: ...` means
+their DNS now resolves to a private or link-local address — re-enabling it
+without fixing the DNS just disables it again on the next attempt.
+
+```bash
+# 3. What did their receiver actually say?
+docker compose exec -T db psql -U screener -d screener -c \
+  "SELECT event_type, status, attempts, last_status_code, left(last_error, 90)
+     FROM outbox_events WHERE org_id = '<ORG>' AND status IN ('pending','dead')
+     ORDER BY created_at DESC LIMIT 20;"
+```
+
+- **`last_status_code` 401/403** — almost always signature verification on
+  their side. The timestamp is *inside* the MAC; a receiver that verifies the
+  body alone, or whose clock is more than 5 minutes out, rejects valid
+  requests. Point them at `outbox/signing.py:verify`, which is the executable
+  form of the documented procedure.
+- **`dead`** — the attempt budget ran out. The rows are kept deliberately; an
+  event nobody could deliver is evidence. Re-drive with
+  `UPDATE outbox_events SET status='pending', attempts=0, next_attempt_at=now()
+  WHERE id = '<ID>';` once the receiver is fixed.
+- **No rows at all** — they are not subscribed to that event type. An empty
+  `event_types` means everything; anything else is an explicit opt-in.
+
+> Executed 2026-09-01 against the running stack for steps 1 and 2. Step 3's
+> re-drive statement has **not** been run against a real failed delivery,
+> because no real receiver has been configured — see the note at the top of
+> this file.
 
 ---
 

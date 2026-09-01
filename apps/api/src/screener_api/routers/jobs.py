@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import datetime as dt
 import uuid
 from typing import Annotated, Any
 
@@ -9,12 +10,21 @@ import structlog
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import select
+from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from screener_api.db import get_session
-from screener_api.models import Candidate, JobPosting, Match, Resume
+from screener_api.models import (
+    Candidate,
+    JobAssignment,
+    JobPosting,
+    Match,
+    Resume,
+    User,
+)
 from screener_api.queue import JobType, enqueue, idempotency_key
 from screener_api.security import audit
+from screener_api.security.abac import visible_jobs_condition
 from screener_api.security.deps import Actor, requires
 from screener_api.security.roles import Permission
 
@@ -188,7 +198,19 @@ async def ranked_matches(
             select(Match, Candidate)
             .join(Resume, Resume.id == Match.resume_id)
             .join(Candidate, Candidate.id == Resume.candidate_id)
-            .where(Match.job_id == job_id, Match.org_id == actor.org_id)
+            .where(
+                Match.job_id == job_id,
+                Match.org_id == actor.org_id,
+                # Attribute scope, applied in SQL rather than over the results.
+                # A hiring manager holds MATCH_READ and could otherwise read the
+                # ranked candidates for every role in the tenant. Filtering after
+                # the query would still leak the count and burn the page budget
+                # (ADR-0020).
+                visible_jobs_condition(actor, Match.job_id),
+                # A hiring manager off the panel gets an empty list, not a 403.
+                # A 403 would confirm the job exists, which is the enumeration
+                # oracle the 403/404 split elsewhere already avoids.
+            )
             .order_by(Match.score.desc())
             .limit(min(limit, 200))
         )
@@ -219,3 +241,120 @@ async def ranked_matches(
             )
         )
     return out
+
+
+class PanelMemberIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    user_id: uuid.UUID
+
+
+class PanelMemberOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    user_id: uuid.UUID
+    created_at: dt.datetime
+
+
+@router.get("/{job_id}/panel", response_model=list[PanelMemberOut])
+async def list_panel(
+    job_id: uuid.UUID,
+    session: Annotated[AsyncSession, Depends(get_session)],
+    actor: Annotated[Actor, requires(Permission.JOB_READ)],
+) -> list[JobAssignment]:
+    rows = await session.execute(
+        select(JobAssignment).where(
+            JobAssignment.job_id == job_id, JobAssignment.org_id == actor.org_id
+        )
+    )
+    return list(rows.scalars())
+
+
+@router.post("/{job_id}/panel", status_code=status.HTTP_201_CREATED)
+async def assign_to_panel(
+    request: Request,
+    job_id: uuid.UUID,
+    body: PanelMemberIn,
+    session: Annotated[AsyncSession, Depends(get_session)],
+    actor: Annotated[Actor, requires(Permission.JOB_WRITE)],
+) -> dict[str, str]:
+    """Grant one user access to this job's candidates.
+
+    Guarded by JOB_WRITE rather than MATCH_READ: this is the act of granting
+    access to candidate data, and the person who may *read* a shortlist is not
+    automatically the person who may decide who else can.
+    """
+    job = (
+        await session.execute(
+            select(JobPosting).where(JobPosting.id == job_id, JobPosting.org_id == actor.org_id)
+        )
+    ).scalar_one_or_none()
+    target = (
+        await session.execute(
+            select(User).where(User.id == body.user_id, User.org_id == actor.org_id)
+        )
+    ).scalar_one_or_none()
+    # Same 404 for "no such job" and "no such user in your tenant": telling the
+    # two apart is an enumeration oracle for other tenants' user ids.
+    if job is None or target is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="no such job or user")
+
+    await session.execute(
+        insert(JobAssignment)
+        .values(
+            id=uuid.uuid4(),
+            org_id=actor.org_id,
+            job_id=job_id,
+            user_id=body.user_id,
+            assigned_by=actor.user_id,
+        )
+        # Assigning twice is a no-op, enforced by the constraint rather than by
+        # a check-then-insert that two requests could interleave.
+        .on_conflict_do_nothing(index_elements=["job_id", "user_id"])
+    )
+    await audit.record(
+        session,
+        action="job.panel_assigned",
+        resource_type="job_posting",
+        resource_id=str(job_id),
+        org_id=actor.org_id,
+        actor_user_id=actor.user_id,
+        actor_ip=request.client.host if request.client else None,
+        meta={"granted_to": str(body.user_id)},
+    )
+    await session.commit()
+    return {"status": "assigned"}
+
+
+@router.delete("/{job_id}/panel/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def remove_from_panel(
+    request: Request,
+    job_id: uuid.UUID,
+    user_id: uuid.UUID,
+    session: Annotated[AsyncSession, Depends(get_session)],
+    actor: Annotated[Actor, requires(Permission.JOB_WRITE)],
+) -> None:
+    """Revoke. Access is a row, so deleting it is the whole revocation — there
+    is no token to expire and no cache to invalidate."""
+    assignment = (
+        await session.execute(
+            select(JobAssignment).where(
+                JobAssignment.job_id == job_id,
+                JobAssignment.user_id == user_id,
+                JobAssignment.org_id == actor.org_id,
+            )
+        )
+    ).scalar_one_or_none()
+    if assignment is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="no such assignment")
+
+    await session.delete(assignment)
+    await audit.record(
+        session,
+        action="job.panel_revoked",
+        resource_type="job_posting",
+        resource_id=str(job_id),
+        org_id=actor.org_id,
+        actor_user_id=actor.user_id,
+        actor_ip=request.client.host if request.client else None,
+        meta={"revoked_from": str(user_id)},
+    )
+    await session.commit()

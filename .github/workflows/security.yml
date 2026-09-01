@@ -92,6 +92,44 @@ jobs:
           exit-code: "1"
           ignore-unfixed: true
 
+      # An SBOM per build is what makes "was this build affected by CVE-X"
+      # answerable after the fact. Trivy is already here and emits CycloneDX,
+      # so this costs one step rather than a new dependency.
+      - name: SBOM (api image)
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          scan-type: image
+          image-ref: screener-api:scan
+          format: cyclonedx
+          output: sbom-api.cdx.json
+      - name: SBOM (worker image)
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          scan-type: image
+          image-ref: screener-worker:scan
+          format: cyclonedx
+          output: sbom-worker.cdx.json
+      # The repository itself, so the SBOM covers the pinned Python and Node
+      # dependency graphs and not only what landed in an image layer.
+      - name: SBOM (repository)
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          scan-type: fs
+          scan-ref: .
+          format: cyclonedx
+          output: sbom-repo.cdx.json
+      - name: Summarise
+        run: |
+          for f in sbom-*.cdx.json; do
+            echo "$f: $(python3 -c "import json,sys; print(len(json.load(open('$f')).get('components',[])))" ) components"
+          done
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: sbom
+          path: sbom-*.cdx.json
+          retention-days: 90
+
   dast:
     name: ZAP baseline against the running stack
     runs-on: ubuntu-latest

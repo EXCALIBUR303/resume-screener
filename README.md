@@ -74,6 +74,12 @@ This project treats all three as engineering problems with testable answers.
 
 ## What it does
 
+> **"Multi-modal" means text and scanned image**, not audio or video. A resume can arrive as
+> extractable text or as a scan that goes through OCR, and both take the same redaction and
+> scoring path. Audio interview answers are designed in
+> [the blueprint](docs/BLUEPRINT.md#m14--v2-depth--3040-h--nice--v2) and **not built**;
+> `FEATURE_AUDIO_ANSWERS` is `false` and nothing behind it exists.
+
 ```
 upload ──▶ sniff + cap ──▶ quarantine ──▶ promote ──▶ enqueue
                                                         │
@@ -150,6 +156,25 @@ that nothing had told it about.
 **Erasure is complete, and the chain survives it.** Deleting a candidate removes every row, the
 encrypted PII map and the blob on disk, leaving a hash-only tombstone. The chain still verifies.
 
+**Authorization is scoped by attribute, not only by role.** A hiring manager holds `MATCH_READ`,
+which is a role-level answer to a resource-level question — so one could read the ranked
+candidates for every position in the tenant. Access is now a row in `job_assignments`, applied as
+a `WHERE` clause. Filtering after the query would still leak the count and burn the page budget
+([ADR-0020](docs/adr/0020-attribute-scoped-match-access.md)).
+
+**Webhook egress is treated as hostile.** A webhook URL is typed in by a tenant and fetched by our
+infrastructure. HTTPS only, every resolved address checked against private and link-local ranges,
+no redirects, and a separate process holding a key that cannot decrypt a PII map. The DNS
+rebinding window is **not** closed, and
+[ADR-0018](docs/adr/0018-transactional-outbox-and-webhook-egress.md) says why the standard fix was
+measured and rejected rather than adopted.
+
+**Every build produces an SBOM.** Three CycloneDX documents per security run — both images and the
+repository's pinned dependency graphs — kept as artifacts, so "was this build affected by CVE-X"
+is answerable after the fact. Image signing (cosign keyless, digest not tag, SBOM attested rather
+than attached) is written in `release.yml` and **has never run**: signing is only meaningful for an
+artifact in a registry, and publishing one is your decision to make.
+
 ---
 
 ## Evaluation
@@ -199,6 +224,25 @@ arithmetic necessity and adds nothing.
 
 "Disclosure hidden: no" on the last three is expected — an affinity group, a location and a career
 break are real extra lines. The system can see a line is there. It cannot see which one.
+
+### Prompt A/B, against a real model
+
+`make prompt-ab` compares two prompt versions on the golden corpus using the local Ollama host.
+It **refuses to run against the stub provider** — the stub derives its answer from a hash of the
+prompt, so it would produce a difference that is pure noise wearing a result's clothes.
+
+| prompt | competencies lost to the evidence gate | quotes / competency | verified quote rate |
+|---|---|---|---|
+| v1 | 0.186 | 0.34 | 1.000 |
+| v2 (worked example added) | **0.000** | 0.58 | 1.000 |
+
+Three runs each on `qwen3:8b`; the per-run ranges are disjoint (v1 `0.146–0.206`, v2 `0.000`).
+The verified-quote rate saturates at 1.000 for both — neither prompt makes the model cite quotes
+it cannot support. **The difference is recall, not precision:** v1 left competencies with no
+citable evidence at all, and those score zero.
+
+Ten pairs, three runs, one model. v2's `0.000` means it did not fail in thirty scored pairs, not
+that it never fails. ([ADR-0021](docs/adr/0021-prompt-ab-against-a-real-model.md))
 
 There is no accuracy percentage anywhere in this project.
 
@@ -275,7 +319,7 @@ and whether the strongest claim holds, so nobody has to take the README's word f
 
 ## What I learned
 
-Eighteen [ADRs](docs/adr/) record the decisions. Six where I was wrong, and the measurement that
+Twenty-one [ADRs](docs/adr/) record the decisions. Six where I was wrong, and the measurement that
 showed it:
 
 **I claimed the deterministic score was "mathematically immune to injection." It wasn't.**

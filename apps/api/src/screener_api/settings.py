@@ -97,6 +97,17 @@ class Settings(BaseSettings):
     llm_fallback_base_url: str = ""
     llm_fallback_api_key: SecretStr = SecretStr("")
 
+    # Which prompt version scores. None means "the highest-numbered file on
+    # disk", which is the existing behaviour and stays the default.
+    #
+    # It is settable because that default has a sharp edge: prompt files are
+    # immutable once committed, but "latest" is implicit, so **adding a file is
+    # a deploy**. Writing prompts/match_score/v2.md to run an A/B changed what
+    # the worker scores with, without a code change and without review. The
+    # experiment won on the measurement (ADR-0021) so the promotion was the
+    # right outcome — it should not have been an accident.
+    llm_prompt_version: int | None = None
+
     otel_enabled: bool = False
     otel_exporter_otlp_endpoint: str = "http://otel-collector:4317"
     # /metrics is unauthenticated by convention so Prometheus can scrape it, and

@@ -228,6 +228,11 @@ async def process(
                 aad=str(endpoint.org_id).encode(),
             )
         except DecryptionError as exc:
+            # Deliberately does NOT count towards consecutive_failures. An
+            # undecryptable secret means the KEK rotated without re-wrapping
+            # webhook secrets, which would fail for EVERY endpoint at once —
+            # disabling them all would turn an operator mistake into a
+            # tenant-visible outage that outlives the fix. Loud, and left alone.
             failures.append(f"{endpoint.id}: secret undecryptable")
             log.error("webhook.secret_undecryptable", endpoint_id=str(endpoint.id), error=str(exc))
             continue

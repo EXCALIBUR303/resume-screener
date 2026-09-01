@@ -1,0 +1,95 @@
+name: release
+
+# Manual and tag-only, on purpose. This is the ONLY workflow in the repository
+# that publishes anything outside it: it pushes container images to GHCR under
+# the repository owner's account. Nothing here runs on a normal push.
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+  # Required for cosign keyless signing: the runner exchanges this OIDC token
+  # for a short-lived certificate from Fulcio. There is no private key to
+  # store, rotate, or leak — which is the whole reason for signing this way
+  # rather than with a keypair in a secret.
+  id-token: write
+
+env:
+  REGISTRY: ghcr.io
+
+jobs:
+  publish:
+    name: build, push, sign, attest
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - image: api
+            dockerfile: infra/docker/Dockerfile.api
+          - image: worker
+            dockerfile: infra/docker/Dockerfile.worker
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ github.repository }}/${{ matrix.image }}
+
+      - id: build
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ${{ matrix.dockerfile }}
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          # Reproducibility aid: the digest below is what gets signed, and a
+          # signature is only meaningful if it names an immutable artifact.
+          provenance: true
+
+      - uses: sigstore/cosign-installer@v3
+
+      # Signed BY DIGEST, never by tag. A tag is mutable: signing
+      # `:latest` says nothing about what `:latest` will point at tomorrow.
+      - name: Sign the image digest
+        run: |
+          cosign sign --yes \
+            "${{ env.REGISTRY }}/${{ github.repository }}/${{ matrix.image }}@${{ steps.build.outputs.digest }}"
+
+      - name: Generate SBOM
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          scan-type: image
+          image-ref: ${{ env.REGISTRY }}/${{ github.repository }}/${{ matrix.image }}@${{ steps.build.outputs.digest }}
+          format: cyclonedx
+          output: sbom.cdx.json
+
+      # Attaching the SBOM as a signed attestation, not a loose file. An
+      # unsigned SBOM sitting next to an image answers "what does the author
+      # claim is in it", which is a different question from "what is in it".
+      - name: Attest the SBOM
+        run: |
+          cosign attest --yes --type cyclonedx --predicate sbom.cdx.json \
+            "${{ env.REGISTRY }}/${{ github.repository }}/${{ matrix.image }}@${{ steps.build.outputs.digest }}"
+
+      - name: Verify what was just published
+        run: |
+          cosign verify \
+            --certificate-identity-regexp "^https://github.com/${{ github.repository }}/" \
+            --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+            "${{ env.REGISTRY }}/${{ github.repository }}/${{ matrix.image }}@${{ steps.build.outputs.digest }}"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sbom-${{ matrix.image }}
+          path: sbom.cdx.json

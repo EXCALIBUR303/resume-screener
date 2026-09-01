@@ -113,6 +113,20 @@ fairness: ## Counterfactual fairness probe: does a protected signal move the sco
 	  FASTEMBED_CACHE_PATH=$${FASTEMBED_CACHE_PATH:-$$HOME/.cache/fastembed} \
 	  $(VENV)/python evals/fairness/run.py
 
+.PHONY: prompt-ab
+prompt-ab: ## A/B two prompt versions against a REAL model (needs ollama)
+	$(VENV)/python evals/prompt_ab.py --versions 1,2 --pairs 10 --repeats 2
+
+.PHONY: sbom
+sbom: ## CycloneDX SBOM for both images and the repository (needs trivy)
+	@command -v trivy >/dev/null || { echo "trivy not installed: brew install trivy"; exit 1; }
+	docker build -f infra/docker/Dockerfile.api -t screener-api:sbom .
+	docker build -f infra/docker/Dockerfile.worker -t screener-worker:sbom .
+	trivy image --format cyclonedx --output sbom-api.cdx.json screener-api:sbom
+	trivy image --format cyclonedx --output sbom-worker.cdx.json screener-worker:sbom
+	trivy fs --format cyclonedx --output sbom-repo.cdx.json .
+	@echo "wrote sbom-*.cdx.json (gitignored; CI keeps them as artifacts for 90 days)"
+
 .PHONY: eval-baseline
 eval-baseline: eval ## Promote the latest run to the committed baseline
 	cp evals/reports/latest.json evals/baselines/v1.json

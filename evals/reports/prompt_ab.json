@@ -1,0 +1,93 @@
+{
+  "model": "qwen3:8b",
+  "pairs": 10,
+  "repeats": 3,
+  "corpus_version": "v1",
+  "runs": {
+    "v1": [
+      {
+        "calls": 10,
+        "quotes_cited": 16,
+        "quotes_verified": 16,
+        "verified_quote_rate": 1.0,
+        "competencies": 41,
+        "competencies_zeroed": 6,
+        "zeroed_rate": 0.1463,
+        "schema_failures": 0,
+        "median_latency_ms": 12608.8
+      },
+      {
+        "calls": 10,
+        "quotes_cited": 15,
+        "quotes_verified": 15,
+        "verified_quote_rate": 1.0,
+        "competencies": 44,
+        "competencies_zeroed": 9,
+        "zeroed_rate": 0.2045,
+        "schema_failures": 0,
+        "median_latency_ms": 12412.9
+      },
+      {
+        "calls": 10,
+        "quotes_cited": 9,
+        "quotes_verified": 9,
+        "verified_quote_rate": 1.0,
+        "competencies": 34,
+        "competencies_zeroed": 7,
+        "zeroed_rate": 0.2059,
+        "schema_failures": 0,
+        "median_latency_ms": 12459.1
+      }
+    ],
+    "v2": [
+      {
+        "calls": 10,
+        "quotes_cited": 18,
+        "quotes_verified": 18,
+        "verified_quote_rate": 1.0,
+        "competencies": 31,
+        "competencies_zeroed": 0,
+        "zeroed_rate": 0.0,
+        "schema_failures": 0,
+        "median_latency_ms": 10491.1
+      },
+      {
+        "calls": 10,
+        "quotes_cited": 18,
+        "quotes_verified": 18,
+        "verified_quote_rate": 1.0,
+        "competencies": 31,
+        "competencies_zeroed": 0,
+        "zeroed_rate": 0.0,
+        "schema_failures": 0,
+        "median_latency_ms": 9959.5
+      },
+      {
+        "calls": 10,
+        "quotes_cited": 18,
+        "quotes_verified": 18,
+        "verified_quote_rate": 1.0,
+        "competencies": 31,
+        "competencies_zeroed": 0,
+        "zeroed_rate": 0.0,
+        "schema_failures": 0,
+        "median_latency_ms": 11096.7
+      }
+    ]
+  },
+  "primary_metric": "zeroed_rate (lower is better)",
+  "noise_floor": 0.0,
+  "ranges": {
+    "v1": [
+      0.1463,
+      0.2059
+    ],
+    "v2": [
+      0.0,
+      0.0
+    ]
+  },
+  "difference_of_means": 0.1856,
+  "ranges_disjoint": true,
+  "better": "v2"
+}

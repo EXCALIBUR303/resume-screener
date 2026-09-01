@@ -79,6 +79,33 @@ python scripts/gen_synthetic.py     # 50 synthetic resumes
 **Never seed real resumes.** The synthetic-data marker is enforced in CI, and
 the deployed instance carries the same decision-support banner as local.
 
+## Publishing signed images
+
+`release.yml` builds both images, pushes them to GHCR, signs each **by digest**
+with cosign keyless, attaches the SBOM as a signed attestation, and then
+verifies what it just published in the same run.
+
+It runs only on a `v*` tag or a manual dispatch, because it is the only workflow
+in this repository that puts anything into the world under your account. Nothing
+triggers it on a normal push.
+
+Consumers verify with:
+
+```bash
+cosign verify \
+  --certificate-identity-regexp "^https://github.com/<owner>/<repo>/" \
+  --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+  ghcr.io/<owner>/<repo>/api@sha256:<digest>
+```
+
+Signing the digest rather than the tag is the point: a tag is mutable, so a
+signature on `:latest` says nothing about what `:latest` will point at tomorrow.
+
+⚠️ **This workflow has never run.** A signature is only meaningful for an
+artifact in a registry, and pushing one is your decision.
+
+---
+
 ## Status
 
 ⚠️ **Not yet performed.** Everything above is prepared and the workflow is

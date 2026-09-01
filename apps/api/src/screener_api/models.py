@@ -502,3 +502,29 @@ class OutboxEvent(Base):
     last_status_code: Mapped[int | None] = mapped_column(Integer, nullable=True)
     delivered_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[dt.datetime] = _now()
+
+
+class JobAssignment(Base):
+    """Who is on the hiring panel for one job posting.
+
+    The attribute the role matrix could not express. A hiring manager sees the
+    candidates for the roles they are assigned to and no others; the assignment
+    is a row rather than a role, because "which job" is not a property of a
+    person (see `security/abac.py`).
+    """
+
+    __tablename__ = "job_assignments"
+    __table_args__ = (UniqueConstraint("job_id", "user_id", name="uq_job_assignment"),)
+
+    id: Mapped[uuid.UUID] = _pk()
+    org_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    job_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("job_postings.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    assigned_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)
+    created_at: Mapped[dt.datetime] = _now()

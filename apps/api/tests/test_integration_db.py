@@ -88,7 +88,7 @@ async def session(postgres) -> AsyncIterator[AsyncSession]:
         await s.execute(
             text(
                 "TRUNCATE organizations, job_queue, audit_events, outbox_events, "
-                "webhook_endpoints RESTART IDENTITY CASCADE"
+                "webhook_endpoints, job_assignments RESTART IDENTITY CASCADE"
             )
         )
         await s.commit()
@@ -1005,3 +1005,205 @@ async def test_the_match_records_the_model_that_answered_not_the_one_configured(
     match = (await session.execute(select(Match))).scalar_one()
     assert match.model_id == "stub-v1"  # the one that answered
     assert match.model_id != router.model_id  # not the one configured first
+
+
+async def _resume(session: AsyncSession, org_id: uuid.UUID) -> uuid.UUID:
+    """A minimal resume row, for tests that only need something to point at.
+
+    `matches.resume_id` is a real foreign key, so a fabricated UUID is rejected
+    by the database rather than quietly stored -- the constraint doing its job.
+    """
+    file_id, candidate_id, resume_id = uuid.uuid4(), uuid.uuid4(), uuid.uuid4()
+    await session.execute(
+        text(
+            "INSERT INTO files (id, org_id, sha256, storage_key, byte_size, "
+            "mime_sniffed, mime_resolved) VALUES (:i,:o,:s,'k',1,'application/pdf',"
+            "'application/pdf')"
+        ),
+        {"i": file_id, "o": org_id, "s": uuid.uuid4().hex * 2},
+    )
+    await session.execute(
+        text("INSERT INTO candidates (id, org_id, pseudonym) VALUES (:i,:o,'C')"),
+        {"i": candidate_id, "o": org_id},
+    )
+    await session.execute(
+        text(
+            "INSERT INTO resumes (id, org_id, candidate_id, file_id, parse_status) "
+            "VALUES (:i,:o,:c,:f,'parsed')"
+        ),
+        {"i": resume_id, "o": org_id, "c": candidate_id, "f": file_id},
+    )
+    return resume_id
+
+
+async def test_a_hiring_manager_sees_only_the_jobs_they_are_assigned_to(
+    session: AsyncSession,
+) -> None:
+    """The scope, proven in SQL rather than asserted about a compiled string.
+
+    Before this existed, HIRING_MANAGER held MATCH_READ and the matches query
+    filtered on org_id alone — so a hiring manager hired for one position could
+    read the ranked candidates for every position in the tenant.
+    """
+    from screener_api.models import JobAssignment, JobPosting, Match
+    from screener_api.security.abac import visible_jobs_condition
+    from screener_api.security.deps import Actor
+    from screener_api.security.roles import Role, permissions_for
+
+    org = await _org(session, "Panel Org")
+    manager = User(
+        id=uuid.uuid4(),
+        org_id=org.id,
+        email="hm@example.com",
+        password_hash=hash_password("x"),
+    )
+    session.add(manager)
+    session.add(UserRole(id=uuid.uuid4(), user_id=manager.id, role=str(Role.HIRING_MANAGER)))
+
+    assigned_job, other_job = uuid.uuid4(), uuid.uuid4()
+    for job_id, title in ((assigned_job, "Assigned"), (other_job, "Not assigned")):
+        session.add(
+            JobPosting(
+                id=job_id,
+                org_id=org.id,
+                title=title,
+                description="d",
+                required_skills=[],
+                nice_to_have=[],
+                hard_requirements=[],
+                min_years=0,
+            )
+        )
+    await session.flush()
+
+    session.add(
+        JobAssignment(id=uuid.uuid4(), org_id=org.id, job_id=assigned_job, user_id=manager.id)
+    )
+
+    # A match under each job, so "sees nothing" cannot pass by accident.
+    for job_id in (assigned_job, other_job):
+        session.add(
+            Match(
+                id=uuid.uuid4(),
+                org_id=org.id,
+                job_id=job_id,
+                resume_id=await _resume(session, org.id),
+                score=0.5,
+                components={},
+                rubric={},
+                evidence={},
+                unmet_requirements=[],
+                model_id="stub-v1",
+                prompt_version="match_score.v1",
+                prompt_hash="h",
+            )
+        )
+    await session.commit()
+
+    def _actor(role: Role) -> Actor:
+        names = frozenset({str(role)})
+        return Actor(
+            user_id=manager.id,
+            org_id=org.id,
+            session_id=uuid.uuid4(),
+            roles=names,
+            permissions=permissions_for(names),
+        )
+
+    scoped = (
+        (
+            await session.execute(
+                select(Match).where(
+                    Match.org_id == org.id,
+                    visible_jobs_condition(_actor(Role.HIRING_MANAGER), Match.job_id),
+                )
+            )
+        )
+        .scalars()
+        .all()
+    )
+    assert [m.job_id for m in scoped] == [assigned_job]
+
+    # A recruiter is unscoped and still sees both.
+    unscoped = (
+        (
+            await session.execute(
+                select(Match).where(
+                    Match.org_id == org.id,
+                    visible_jobs_condition(_actor(Role.RECRUITER), Match.job_id),
+                )
+            )
+        )
+        .scalars()
+        .all()
+    )
+    assert len(unscoped) == 2
+
+
+async def test_removing_an_assignment_removes_the_access(session: AsyncSession) -> None:
+    """Access is a row. Deleting it revokes, with no cache to invalidate."""
+    from screener_api.models import JobAssignment, JobPosting, Match
+    from screener_api.security.abac import visible_jobs_condition
+    from screener_api.security.deps import Actor
+    from screener_api.security.roles import Role, permissions_for
+
+    org = await _org(session, "Revoke Org")
+    manager = User(
+        id=uuid.uuid4(),
+        org_id=org.id,
+        email="hm2@example.com",
+        password_hash=hash_password("x"),
+    )
+    session.add(manager)
+    job_id = uuid.uuid4()
+    session.add(
+        JobPosting(
+            id=job_id,
+            org_id=org.id,
+            title="J",
+            description="d",
+            required_skills=[],
+            nice_to_have=[],
+            hard_requirements=[],
+            min_years=0,
+        )
+    )
+    await session.flush()
+    assignment = JobAssignment(id=uuid.uuid4(), org_id=org.id, job_id=job_id, user_id=manager.id)
+    session.add(assignment)
+    session.add(
+        Match(
+            id=uuid.uuid4(),
+            org_id=org.id,
+            job_id=job_id,
+            resume_id=await _resume(session, org.id),
+            score=0.5,
+            components={},
+            rubric={},
+            evidence={},
+            unmet_requirements=[],
+            model_id="stub-v1",
+            prompt_version="match_score.v1",
+            prompt_hash="h",
+        )
+    )
+    await session.commit()
+
+    names = frozenset({str(Role.HIRING_MANAGER)})
+    actor = Actor(
+        user_id=manager.id,
+        org_id=org.id,
+        session_id=uuid.uuid4(),
+        roles=names,
+        permissions=permissions_for(names),
+    )
+    condition = visible_jobs_condition(actor, Match.job_id)
+
+    before = (await session.execute(select(Match).where(condition))).scalars().all()
+    assert len(before) == 1
+
+    await session.delete(assignment)
+    await session.commit()
+
+    after = (await session.execute(select(Match).where(condition))).scalars().all()
+    assert after == []
