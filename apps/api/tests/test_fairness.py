@@ -266,3 +266,86 @@ def test_a_deletion_takes_exactly_one_separator_with_it() -> None:
     assert "|" in out
     assert "DOB_1 | PAN" in out
     assert "Female" not in out and "married" not in out
+
+
+# --------------------------------------------------------------------------- #
+#  Institutions (ADR-0023)
+# --------------------------------------------------------------------------- #
+
+INSTITUTIONS = [
+    "Imaginary Institute of Technology",
+    "Stanford University",
+    "MIT",
+    "Example College",
+    "Nowhere Polytechnic",
+    "IIT Bombay",
+    "Placeholder School of Engineering",
+    "Fictional Academy",
+    "Notreal State University",
+    "St John's College",
+]
+
+
+def _education_line(institution: str) -> str:
+    text = f"EDUCATION\nB.Tech Computer Science, {institution}, 2018\n"
+    return redact(text).text.split("\n")[1]
+
+
+def test_every_institution_reduces_to_the_same_token() -> None:
+    """Which candidates get their institution removed must not depend on
+    whether a statistical model recognised the name.
+
+    Measured before the fix: NER redacted 8 of these 10 and produced FIVE
+    different shapes — `ORG_1`, `Imaginary ORG_1`, the name untouched, and two
+    where the DEGREE was swallowed along with it. An institution is a proxy for
+    background in the way a graduation year is a proxy for age.
+    """
+    shapes = {_education_line(name) for name in INSTITUTIONS}
+    assert len(shapes) == 1, f"{len(shapes)} distinct shapes: {sorted(shapes)}"
+
+
+@pytest.mark.parametrize("institution", INSTITUTIONS)
+def test_the_institution_name_never_survives(institution: str) -> None:
+    assert institution not in _education_line(institution)
+
+
+@pytest.mark.parametrize("institution", INSTITUTIONS)
+def test_the_degree_survives_every_institution(institution: str) -> None:
+    """The failure this fix also closed. When NER spanned the whole education
+    line, `is_degree_phrase` saw "B.Tech Computer Science, Example College",
+    which is not all degree vocabulary, so the qualification went with the
+    institution. The deterministic rule wins the merge and the degree stays."""
+    assert "B.Tech Computer Science" in _education_line(institution)
+
+
+@pytest.mark.parametrize(
+    "line",
+    [
+        "B.Tech CS, Example College, 2018",
+        "B.E. ECE, Nowhere Polytechnic, 2015",
+        "M.Sc AI, Stanford University, 2020",
+        "MBA, Harvard Business School, 2010",
+    ],
+)
+def test_abbreviated_degrees_survive_too(line: str) -> None:
+    """ "B.Tech CS" failed the all-tokens degree test because "CS" was not in the
+    vocabulary, so NER's span over it was redacted as a PERSON — the degree
+    destroyed again, by a different route."""
+    out = redact(f"EDUCATION\n{line}\n").text.split("\n")[1]
+    degree = line.split(",")[0]
+    assert degree in out, f"{degree!r} was lost from {out!r}"
+
+
+@pytest.mark.parametrize(
+    "line",
+    [
+        "I spent two years teaching secondary school mathematics.",
+        "Senior Engineer, Invented Systems Ltd (2021-2026)",
+        "Built services in Python on PostgreSQL at Google Cloud.",
+        "The school of thought here is pragmatic.",
+    ],
+)
+def test_the_institution_rule_does_not_fire_on_ordinary_prose(line: str) -> None:
+    """Lowercase "school" is a noun, not an institution. Over-redaction is a
+    different failure, not a safe direction (ADR-0009)."""
+    assert redact(line, use_ner=False).text == line

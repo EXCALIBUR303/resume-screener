@@ -31,6 +31,7 @@ from screener_api.privacy.recognizers import (
     DELETE_NOT_TOKENISE,
     EDUCATION_CONTEXT,
     EDUCATION_WINDOW,
+    INSTITUTION,
     NEVER_REDACT,
     PATTERNS,
     PHONE_MIN_DIGITS,
@@ -141,6 +142,15 @@ def _pattern_spans(text: str) -> list[Span]:
     for m in POSTAL_US.regex.finditer(text):
         if _preceded_by(text, m.start(), POSTAL_CONTEXT, POSTAL_WINDOW):
             spans.append(Span(m.start(), m.end(), POSTAL_US.entity, m.group(0), "pattern"))
+
+    # Institutions, deterministically. In the pattern layer rather than left to
+    # NER for two reasons: which candidates get one removed must not depend on
+    # whether a model recognised the name (ADR-0017), and being in the most
+    # reliable layer means it wins the merge — so the NER span that used to
+    # swallow "B.Tech Computer Science, Example College" whole, degree and all,
+    # is now rejected for overlapping this one.
+    for m in INSTITUTION.regex.finditer(text):
+        spans.append(Span(m.start(), m.end(), INSTITUTION.entity, m.group(0), "pattern"))
     return spans
 
 

@@ -36,7 +36,7 @@ Ramanathan led the migration from a          PERSON_1 led the migration from a
 
 EDUCATION                                    EDUCATION
 B.Tech Computer Science,                     B.Tech Computer Science,
-  Imaginary Institute of Tech., 2019           Imaginary ORG_2
+  Imaginary Institute of Tech., 2019           ORG_2
 
 TECHNICAL SKILLS                             TECHNICAL SKILLS
 Python, PostgreSQL, Redis, Docker,           Python, PostgreSQL, Redis, Docker,
@@ -208,6 +208,7 @@ protected-attribute signal at a time, and runs every one through the real scorin
 | gender marker | yes | yes | 0.000 |
 | personal details | yes | yes | 0.000 |
 | graduation year | yes | yes | 0.000 |
+| institution | yes | yes | 0.000 |
 | affinity group | yes | no | 0.000 |
 | location | yes | no | 0.000 |
 | career break reason | yes | no | 0.000 |
@@ -216,6 +217,13 @@ The first run of this probe found nine defects, including one where **the same p
 redacted correctly for one candidate name and shattered into two fake postal codes for another** —
 so two identical resumes were embedded, retrieved and scored differently because of the
 candidate's name. [ADR-0017](docs/adr/0017-redaction-was-not-name-invariant.md) has all nine.
+
+Adding the `institution` axis later found a bigger one: with institutions left to NER, **which
+university a candidate attended moved their score by 0.412** — two of ten institutions were never
+redacted at all, and where NER spanned the whole education line it took the *degree* with it.
+Matched by shape now, deterministically
+([ADR-0023](docs/adr/0023-institutions-redacted-by-shape.md)). A probe only finds what it has an
+axis for.
 
 **Read this honestly.** Synthetic documents, three base resumes per axis, stub model. It shows this
 pipeline does not respond to a signal it claims to remove. **It is not an applicant-flow study, not
@@ -326,9 +334,6 @@ and whether the strongest claim holds, so nobody has to take the README's word f
 - **No bias audit.** There is a counterfactual-invariance probe (`make fairness`) and it found
   nine real defects, but it runs on synthetic documents with `n` = 3 per axis. An independent
   audit on real applicant flow is a different thing entirely, and has not been done.
-- **Institution redaction is inconsistent.** NER catches `Stanford University` and misses
-  `Imaginary Institute`, and an institution is a proxy for background. Measured, recorded in
-  ADR-0017, not solved.
 - **Webhook delivery does not close the DNS rebinding window.** A URL is
   validated and then resolved again at connect time. The pin-the-IP defence was
   measured and rejected: certificate verification did not follow
@@ -352,7 +357,7 @@ and whether the strongest claim holds, so nobody has to take the README's word f
 
 ## What I learned
 
-Twenty-two [ADRs](docs/adr/) record the decisions. Six where I was wrong, and the measurement that
+Twenty-three [ADRs](docs/adr/) record the decisions. Six where I was wrong, and the measurement that
 showed it:
 
 **I claimed the deterministic score was "mathematically immune to injection." It wasn't.**

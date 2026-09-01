@@ -2,6 +2,11 @@
 # here is how a real secret eventually gets ignored.
 #
 # Format: <commit>:<path>:<rule>:<line>
+#
+# gitleaks discovers this file relative to the CURRENT DIRECTORY, so it must be
+# run from the repository root. `make sec` and the security workflow do. Running
+# `gitleaks detect` from apps/ or apps/api/ skips this file and reports the
+# entry below as a live finding, which is alarming and wrong.
 
 # Synthetic JWT used to prove the log redactor strips credentials. Header
 # {"alg":"HS256"}, payload {"sub":"1234567890"}, signature literally

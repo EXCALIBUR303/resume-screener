@@ -170,6 +170,15 @@ inconsistent, and an institution is a proxy for background. Making it consistent
 needs either a position-based rule inside the education section or a model that
 is better at organisations than `en_core_web_sm`. Recorded, not solved.
 
+> **Closed 2026-09-01 by [ADR-0023](0023-institutions-redacted-by-shape.md).**
+> Matched by shape in the pattern layer instead. Measuring it first showed it was
+> worse than this paragraph says: two of ten institutions survived untouched,
+> the ten produced five different shapes, and where NER spanned the whole
+> education line the *degree* was destroyed with it — which is the failure this
+> ADR claimed to have fixed, working only when NER isolated the degree. Adding
+> an `institution` axis to the probe put a number on it: **0.412**, the largest
+> effect this harness has measured.
+
 ## Consequences
 
 - One optional argument added to `handle_score_job`. Production behaviour

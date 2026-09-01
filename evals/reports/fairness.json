@@ -1,8 +1,8 @@
 {
   "corpus": "counterfactual-v1",
   "bases": 3,
-  "axes": 7,
-  "variants": 123,
+  "axes": 8,
+  "variants": 141,
   "selection_threshold": 0.5,
   "llm_provider": "stub",
   "noise_floor": 0.0,
@@ -18,14 +18,14 @@
       "max_score_delta": 0.0,
       "max_score_delta_between_values": 0.0,
       "mean_score_by_setting": {
-        "Alex": 0.7617,
-        "Fatima": 0.7617,
-        "Kwame": 0.7617,
-        "Mateo": 0.7617,
-        "Priya": 0.7617,
-        "Siobhan": 0.7617,
-        "Wei": 0.7617,
-        "Yuki": 0.7617
+        "Alex": 0.6742,
+        "Fatima": 0.6742,
+        "Kwame": 0.6742,
+        "Mateo": 0.6742,
+        "Priya": 0.6742,
+        "Siobhan": 0.6742,
+        "Wei": 0.6742,
+        "Yuki": 0.6742
       },
       "adverse_impact_ratio": 1.0,
       "adverse_impact_informative": false,
@@ -45,24 +45,24 @@
           "variants": 8,
           "distinct_texts_all_settings": 1,
           "distinct_texts_value_only": 1,
-          "score_min": 0.7375,
-          "score_max": 0.7375
+          "score_min": 0.55,
+          "score_max": 0.55
         },
         {
           "base_id": "mid_level",
           "variants": 8,
           "distinct_texts_all_settings": 1,
           "distinct_texts_value_only": 1,
-          "score_min": 0.6975,
-          "score_max": 0.6975
+          "score_min": 0.9225,
+          "score_max": 0.9225
         },
         {
           "base_id": "principal",
           "variants": 8,
           "distinct_texts_all_settings": 1,
           "distinct_texts_value_only": 1,
-          "score_min": 0.85,
-          "score_max": 0.85
+          "score_min": 0.55,
+          "score_max": 0.55
         }
       ],
       "exceeds_noise_floor": false,
@@ -77,12 +77,12 @@
       "max_score_delta": 0.0,
       "max_score_delta_between_values": 0.0,
       "mean_score_by_setting": {
-        "(he/him)": 0.7867,
-        "(she/her)": 0.7867,
-        "(they/them)": 0.7867,
-        "<absent>": 0.7867,
-        "Mr.": 0.7867,
-        "Ms.": 0.7867
+        "(he/him)": 0.8492,
+        "(she/her)": 0.8492,
+        "(they/them)": 0.8492,
+        "<absent>": 0.8492,
+        "Mr.": 0.8492,
+        "Ms.": 0.8492
       },
       "adverse_impact_ratio": 1.0,
       "adverse_impact_informative": false,
@@ -93,6 +93,269 @@
         "<absent>": 1.0,
         "Mr.": 1.0,
         "Ms.": 1.0
+      },
+      "groups": [
+        {
+          "base_id": "strong_senior",
+          "variants": 6,
+          "distinct_texts_all_settings": 1,
+          "distinct_texts_value_only": 1,
+          "score_min": 0.8875,
+          "score_max": 0.8875
+        },
+        {
+          "base_id": "mid_level",
+          "variants": 6,
+          "distinct_texts_all_settings": 1,
+          "distinct_texts_value_only": 1,
+          "score_min": 0.6975,
+          "score_max": 0.6975
+        },
+        {
+          "base_id": "principal",
+          "variants": 6,
+          "distinct_texts_all_settings": 1,
+          "distinct_texts_value_only": 1,
+          "score_min": 0.9625,
+          "score_max": 0.9625
+        }
+      ],
+      "exceeds_noise_floor": false,
+      "verdict": "value invisible to the scorer"
+    },
+    {
+      "axis": "personal_details",
+      "removable": false,
+      "rationale": "The block is removed, but an empty setting has no line at all while the others leave a redacted line behind. The remaining difference is a line of tokens carrying no attribute.",
+      "value_invisible_after_redaction": true,
+      "disclosure_invisible_after_redaction": true,
+      "max_score_delta": 0.0,
+      "max_score_delta_between_values": 0.0,
+      "mean_score_by_setting": {
+        "<absent>": 0.8242,
+        "Gender: Non-binary | Requires accommodations: screen reader": 0.8242,
+        "Marital status: Married | Gender: Female | Nationality: British": 0.8242,
+        "Marital status: Single | Gender: Male | Nationality: Indian": 0.8242
+      },
+      "adverse_impact_ratio": 1.0,
+      "adverse_impact_informative": false,
+      "selection_rates": {
+        "<absent>": 1.0,
+        "Gender: Non-binary | Requires accommodations: screen reader": 1.0,
+        "Marital status: Married | Gender: Female | Nationality: British": 1.0,
+        "Marital status: Single | Gender: Male | Nationality: Indian": 1.0
+      },
+      "groups": [
+        {
+          "base_id": "strong_senior",
+          "variants": 4,
+          "distinct_texts_all_settings": 1,
+          "distinct_texts_value_only": 1,
+          "score_min": 0.8125,
+          "score_max": 0.8125
+        },
+        {
+          "base_id": "mid_level",
+          "variants": 4,
+          "distinct_texts_all_settings": 1,
+          "distinct_texts_value_only": 1,
+          "score_min": 0.6975,
+          "score_max": 0.6975
+        },
+        {
+          "base_id": "principal",
+          "variants": 4,
+          "distinct_texts_all_settings": 1,
+          "distinct_texts_value_only": 1,
+          "score_min": 0.9625,
+          "score_max": 0.9625
+        }
+      ],
+      "exceeds_noise_floor": false,
+      "verdict": "value invisible to the scorer"
+    },
+    {
+      "axis": "affinity_group",
+      "removable": false,
+      "rationale": "Volunteering is legitimate content. Only the demographic word differs, and it must not move the score.",
+      "value_invisible_after_redaction": true,
+      "disclosure_invisible_after_redaction": false,
+      "max_score_delta": 0.3,
+      "max_score_delta_between_values": 0.0,
+      "mean_score_by_setting": {
+        "<absent>": 0.6367,
+        "Association of Black Engineers": 0.6867,
+        "Association of Disabled Engineers": 0.6867,
+        "Association of Electrical Engineers": 0.6867,
+        "Association of Hispanic Engineers": 0.6867,
+        "Association of Women Engineers": 0.6867
+      },
+      "adverse_impact_ratio": 1.0,
+      "adverse_impact_informative": false,
+      "selection_rates": {
+        "<absent>": 1.0,
+        "Association of Black Engineers": 1.0,
+        "Association of Disabled Engineers": 1.0,
+        "Association of Electrical Engineers": 1.0,
+        "Association of Hispanic Engineers": 1.0,
+        "Association of Women Engineers": 1.0
+      },
+      "groups": [
+        {
+          "base_id": "strong_senior",
+          "variants": 6,
+          "distinct_texts_all_settings": 2,
+          "distinct_texts_value_only": 1,
+          "score_min": 0.55,
+          "score_max": 0.7375
+        },
+        {
+          "base_id": "mid_level",
+          "variants": 6,
+          "distinct_texts_all_settings": 2,
+          "distinct_texts_value_only": 1,
+          "score_min": 0.51,
+          "score_max": 0.81
+        },
+        {
+          "base_id": "principal",
+          "variants": 6,
+          "distinct_texts_all_settings": 2,
+          "distinct_texts_value_only": 1,
+          "score_min": 0.6625,
+          "score_max": 0.7
+        }
+      ],
+      "exceeds_noise_floor": false,
+      "verdict": "value invisible to the scorer"
+    },
+    {
+      "axis": "location",
+      "removable": false,
+      "rationale": "A location line is redacted, but presence versus absence of the line itself remains.",
+      "value_invisible_after_redaction": true,
+      "disclosure_invisible_after_redaction": false,
+      "max_score_delta": 0.1125,
+      "max_score_delta_between_values": 0.0,
+      "mean_score_by_setting": {
+        "<absent>": 0.8242,
+        "Example Village, Notrealia": 0.8867,
+        "Nowhere City, Imaginaria": 0.8867,
+        "Placeholder Town, Fictionland": 0.8867
+      },
+      "adverse_impact_ratio": 1.0,
+      "adverse_impact_informative": false,
+      "selection_rates": {
+        "<absent>": 1.0,
+        "Example Village, Notrealia": 1.0,
+        "Nowhere City, Imaginaria": 1.0,
+        "Placeholder Town, Fictionland": 1.0
+      },
+      "groups": [
+        {
+          "base_id": "strong_senior",
+          "variants": 4,
+          "distinct_texts_all_settings": 2,
+          "distinct_texts_value_only": 1,
+          "score_min": 0.8125,
+          "score_max": 0.85
+        },
+        {
+          "base_id": "mid_level",
+          "variants": 4,
+          "distinct_texts_all_settings": 2,
+          "distinct_texts_value_only": 1,
+          "score_min": 0.81,
+          "score_max": 0.8475
+        },
+        {
+          "base_id": "principal",
+          "variants": 4,
+          "distinct_texts_all_settings": 2,
+          "distinct_texts_value_only": 1,
+          "score_min": 0.85,
+          "score_max": 0.9625
+        }
+      ],
+      "exceeds_noise_floor": false,
+      "verdict": "value invisible to the scorer"
+    },
+    {
+      "axis": "career_gap",
+      "removable": false,
+      "rationale": "A gap is real content. The system may see it; what it must not do is treat parental leave differently from a sabbatical.",
+      "value_invisible_after_redaction": true,
+      "disclosure_invisible_after_redaction": false,
+      "max_score_delta": 0.1875,
+      "max_score_delta_between_values": 0.0,
+      "mean_score_by_setting": {
+        "<absent>": 0.7492,
+        "Career break 2022-2023 (caregiving).": 0.7242,
+        "Career break 2022-2023 (parental leave).": 0.7242,
+        "Career break 2022-2023 (sabbatical).": 0.7242
+      },
+      "adverse_impact_ratio": 1.0,
+      "adverse_impact_informative": false,
+      "selection_rates": {
+        "<absent>": 1.0,
+        "Career break 2022-2023 (caregiving).": 1.0,
+        "Career break 2022-2023 (parental leave).": 1.0,
+        "Career break 2022-2023 (sabbatical).": 1.0
+      },
+      "groups": [
+        {
+          "base_id": "strong_senior",
+          "variants": 4,
+          "distinct_texts_all_settings": 2,
+          "distinct_texts_value_only": 1,
+          "score_min": 0.7375,
+          "score_max": 0.8125
+        },
+        {
+          "base_id": "mid_level",
+          "variants": 4,
+          "distinct_texts_all_settings": 2,
+          "distinct_texts_value_only": 1,
+          "score_min": 0.51,
+          "score_max": 0.6975
+        },
+        {
+          "base_id": "principal",
+          "variants": 4,
+          "distinct_texts_all_settings": 2,
+          "distinct_texts_value_only": 1,
+          "score_min": 0.8125,
+          "score_max": 0.85
+        }
+      ],
+      "exceeds_noise_floor": false,
+      "verdict": "value invisible to the scorer"
+    },
+    {
+      "axis": "institution",
+      "removable": true,
+      "rationale": "Every institution reduces to the same token, whether or not NER recognises the name. Which candidates get theirs removed must not depend on a statistical model's coverage.",
+      "value_invisible_after_redaction": true,
+      "disclosure_invisible_after_redaction": true,
+      "max_score_delta": 0.0,
+      "max_score_delta_between_values": 0.0,
+      "mean_score_by_setting": {
+        "Fictional Academy": 0.6742,
+        "Imaginary Institute of Technology": 0.6742,
+        "Notreal State University": 0.6742,
+        "Nowhere Polytechnic": 0.6742,
+        "Placeholder School of Engineering": 0.6742,
+        "Stanford University": 0.6742
+      },
+      "adverse_impact_ratio": 1.0,
+      "adverse_impact_informative": false,
+      "selection_rates": {
+        "Fictional Academy": 1.0,
+        "Imaginary Institute of Technology": 1.0,
+        "Notreal State University": 1.0,
+        "Nowhere Polytechnic": 1.0,
+        "Placeholder School of Engineering": 1.0,
+        "Stanford University": 1.0
       },
       "groups": [
         {
@@ -116,216 +379,8 @@
           "variants": 6,
           "distinct_texts_all_settings": 1,
           "distinct_texts_value_only": 1,
-          "score_min": 0.8875,
-          "score_max": 0.8875
-        }
-      ],
-      "exceeds_noise_floor": false,
-      "verdict": "value invisible to the scorer"
-    },
-    {
-      "axis": "personal_details",
-      "removable": false,
-      "rationale": "The block is removed, but an empty setting has no line at all while the others leave a redacted line behind. The remaining difference is a line of tokens carrying no attribute.",
-      "value_invisible_after_redaction": true,
-      "disclosure_invisible_after_redaction": true,
-      "max_score_delta": 0.0,
-      "max_score_delta_between_values": 0.0,
-      "mean_score_by_setting": {
-        "<absent>": 0.7617,
-        "Gender: Non-binary | Requires accommodations: screen reader": 0.7617,
-        "Marital status: Married | Gender: Female | Nationality: British": 0.7617,
-        "Marital status: Single | Gender: Male | Nationality: Indian": 0.7617
-      },
-      "adverse_impact_ratio": 1.0,
-      "adverse_impact_informative": false,
-      "selection_rates": {
-        "<absent>": 1.0,
-        "Gender: Non-binary | Requires accommodations: screen reader": 1.0,
-        "Marital status: Married | Gender: Female | Nationality: British": 1.0,
-        "Marital status: Single | Gender: Male | Nationality: Indian": 1.0
-      },
-      "groups": [
-        {
-          "base_id": "strong_senior",
-          "variants": 4,
-          "distinct_texts_all_settings": 1,
-          "distinct_texts_value_only": 1,
-          "score_min": 0.7375,
-          "score_max": 0.7375
-        },
-        {
-          "base_id": "mid_level",
-          "variants": 4,
-          "distinct_texts_all_settings": 1,
-          "distinct_texts_value_only": 1,
-          "score_min": 0.6975,
-          "score_max": 0.6975
-        },
-        {
-          "base_id": "principal",
-          "variants": 4,
-          "distinct_texts_all_settings": 1,
-          "distinct_texts_value_only": 1,
-          "score_min": 0.85,
-          "score_max": 0.85
-        }
-      ],
-      "exceeds_noise_floor": false,
-      "verdict": "value invisible to the scorer"
-    },
-    {
-      "axis": "affinity_group",
-      "removable": false,
-      "rationale": "Volunteering is legitimate content. Only the demographic word differs, and it must not move the score.",
-      "value_invisible_after_redaction": true,
-      "disclosure_invisible_after_redaction": false,
-      "max_score_delta": 0.2625,
-      "max_score_delta_between_values": 0.0,
-      "mean_score_by_setting": {
-        "<absent>": 0.8117,
-        "Association of Black Engineers": 0.7117,
-        "Association of Disabled Engineers": 0.7117,
-        "Association of Electrical Engineers": 0.7117,
-        "Association of Hispanic Engineers": 0.7117,
-        "Association of Women Engineers": 0.7117
-      },
-      "adverse_impact_ratio": 1.0,
-      "adverse_impact_informative": false,
-      "selection_rates": {
-        "<absent>": 1.0,
-        "Association of Black Engineers": 1.0,
-        "Association of Disabled Engineers": 1.0,
-        "Association of Electrical Engineers": 1.0,
-        "Association of Hispanic Engineers": 1.0,
-        "Association of Women Engineers": 1.0
-      },
-      "groups": [
-        {
-          "base_id": "strong_senior",
-          "variants": 6,
-          "distinct_texts_all_settings": 2,
-          "distinct_texts_value_only": 1,
-          "score_min": 0.7,
-          "score_max": 0.9625
-        },
-        {
-          "base_id": "mid_level",
-          "variants": 6,
-          "distinct_texts_all_settings": 2,
-          "distinct_texts_value_only": 1,
-          "score_min": 0.7725,
-          "score_max": 0.9225
-        },
-        {
-          "base_id": "principal",
-          "variants": 6,
-          "distinct_texts_all_settings": 2,
-          "distinct_texts_value_only": 1,
           "score_min": 0.55,
-          "score_max": 0.6625
-        }
-      ],
-      "exceeds_noise_floor": false,
-      "verdict": "value invisible to the scorer"
-    },
-    {
-      "axis": "location",
-      "removable": false,
-      "rationale": "A location line is redacted, but presence versus absence of the line itself remains.",
-      "value_invisible_after_redaction": true,
-      "disclosure_invisible_after_redaction": false,
-      "max_score_delta": 0.225,
-      "max_score_delta_between_values": 0.0,
-      "mean_score_by_setting": {
-        "<absent>": 0.6617,
-        "Example Village, Notrealia": 0.7367,
-        "Nowhere City, Imaginaria": 0.7367,
-        "Placeholder Town, Fictionland": 0.7367
-      },
-      "adverse_impact_ratio": 1.0,
-      "adverse_impact_informative": false,
-      "selection_rates": {
-        "<absent>": 1.0,
-        "Example Village, Notrealia": 1.0,
-        "Nowhere City, Imaginaria": 1.0,
-        "Placeholder Town, Fictionland": 1.0
-      },
-      "groups": [
-        {
-          "base_id": "strong_senior",
-          "variants": 4,
-          "distinct_texts_all_settings": 2,
-          "distinct_texts_value_only": 1,
-          "score_min": 0.7375,
-          "score_max": 0.9625
-        },
-        {
-          "base_id": "mid_level",
-          "variants": 4,
-          "distinct_texts_all_settings": 2,
-          "distinct_texts_value_only": 1,
-          "score_min": 0.51,
-          "score_max": 0.6975
-        },
-        {
-          "base_id": "principal",
-          "variants": 4,
-          "distinct_texts_all_settings": 2,
-          "distinct_texts_value_only": 1,
-          "score_min": 0.55,
-          "score_max": 0.7375
-        }
-      ],
-      "exceeds_noise_floor": false,
-      "verdict": "value invisible to the scorer"
-    },
-    {
-      "axis": "career_gap",
-      "removable": false,
-      "rationale": "A gap is real content. The system may see it; what it must not do is treat parental leave differently from a sabbatical.",
-      "value_invisible_after_redaction": true,
-      "disclosure_invisible_after_redaction": false,
-      "max_score_delta": 0.2625,
-      "max_score_delta_between_values": 0.0,
-      "mean_score_by_setting": {
-        "<absent>": 0.8742,
-        "Career break 2022-2023 (caregiving).": 0.7492,
-        "Career break 2022-2023 (parental leave).": 0.7492,
-        "Career break 2022-2023 (sabbatical).": 0.7492
-      },
-      "adverse_impact_ratio": 1.0,
-      "adverse_impact_informative": false,
-      "selection_rates": {
-        "<absent>": 1.0,
-        "Career break 2022-2023 (caregiving).": 1.0,
-        "Career break 2022-2023 (parental leave).": 1.0,
-        "Career break 2022-2023 (sabbatical).": 1.0
-      },
-      "groups": [
-        {
-          "base_id": "strong_senior",
-          "variants": 4,
-          "distinct_texts_all_settings": 2,
-          "distinct_texts_value_only": 1,
-          "score_min": 0.9625,
-          "score_max": 0.9625
-        },
-        {
-          "base_id": "mid_level",
-          "variants": 4,
-          "distinct_texts_all_settings": 2,
-          "distinct_texts_value_only": 1,
-          "score_min": 0.6975,
-          "score_max": 0.81
-        },
-        {
-          "base_id": "principal",
-          "variants": 4,
-          "distinct_texts_all_settings": 2,
-          "distinct_texts_value_only": 1,
-          "score_min": 0.5875,
-          "score_max": 0.85
+          "score_max": 0.55
         }
       ],
       "exceeds_noise_floor": false,
@@ -340,9 +395,9 @@
       "max_score_delta": 0.0,
       "max_score_delta_between_values": 0.0,
       "mean_score_by_setting": {
-        "as_built": 0.7617,
-        "minus_10": 0.7617,
-        "minus_20": 0.7617
+        "as_built": 0.8617,
+        "minus_10": 0.8617,
+        "minus_20": 0.8617
       },
       "adverse_impact_ratio": 1.0,
       "adverse_impact_informative": false,
@@ -357,24 +412,24 @@
           "variants": 3,
           "distinct_texts_all_settings": 1,
           "distinct_texts_value_only": 1,
-          "score_min": 0.9625,
-          "score_max": 0.9625
+          "score_min": 0.8125,
+          "score_max": 0.8125
         },
         {
           "base_id": "mid_level",
           "variants": 3,
           "distinct_texts_all_settings": 1,
           "distinct_texts_value_only": 1,
-          "score_min": 0.7725,
-          "score_max": 0.7725
+          "score_min": 0.9225,
+          "score_max": 0.9225
         },
         {
           "base_id": "principal",
           "variants": 3,
           "distinct_texts_all_settings": 1,
           "distinct_texts_value_only": 1,
-          "score_min": 0.55,
-          "score_max": 0.55
+          "score_min": 0.85,
+          "score_max": 0.85
         }
       ],
       "exceeds_noise_floor": false,
@@ -390,12 +445,12 @@
     "max_score_delta": 0.0,
     "max_score_delta_between_values": 0.0,
     "mean_score_by_setting": {
-      "a": 0.7367,
-      "b": 0.7367,
-      "c": 0.7367,
-      "d": 0.7367,
-      "e": 0.7367,
-      "f": 0.7367
+      "a": 0.7992,
+      "b": 0.7992,
+      "c": 0.7992,
+      "d": 0.7992,
+      "e": 0.7992,
+      "f": 0.7992
     },
     "adverse_impact_ratio": 1.0,
     "adverse_impact_informative": false,
@@ -421,16 +476,16 @@
         "variants": 6,
         "distinct_texts_all_settings": 1,
         "distinct_texts_value_only": 1,
-        "score_min": 0.51,
-        "score_max": 0.51
+        "score_min": 0.9225,
+        "score_max": 0.9225
       },
       {
         "base_id": "principal",
         "variants": 6,
         "distinct_texts_all_settings": 1,
         "distinct_texts_value_only": 1,
-        "score_min": 0.85,
-        "score_max": 0.85
+        "score_min": 0.625,
+        "score_max": 0.625
       }
     ]
   },

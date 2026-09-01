@@ -187,6 +187,41 @@ SHAPED_PROTECTED_PATTERNS: Final[tuple[Pattern, ...]] = (
     ),
 )
 
+# Educational institutions, matched by shape rather than left to NER.
+#
+# ADR-0017 recorded institution redaction as inconsistent and did not solve it.
+# Measured across ten institutions on an otherwise identical line, NER redacted
+# eight and produced FIVE different shapes:
+#
+#   Stanford University              -> ORG_1
+#   Imaginary Institute of Technology -> Imaginary ORG_1     (partial)
+#   Nowhere Polytechnic              -> Nowhere Polytechnic  (untouched)
+#   Example College                  -> ORG_1, and the DEGREE went with it
+#
+# An institution is a proxy for background in the same way a graduation year is
+# a proxy for age, so which candidates get one removed cannot depend on whether
+# a statistical model happened to recognise the name.
+#
+# Emitted as ORG, deliberately sharing the employer numbering: if this layer
+# emitted a distinct entity, the redacted text would differ depending on WHICH
+# layer caught the institution, which is the same invariance failure ADR-0017
+# is about.
+#
+# The `redact` group excludes a trailing "of <Subject>" from the match when the
+# subject is a field of study — "School of Engineering" is the institution,
+# but "Institute of Technology" should not swallow a following degree subject.
+INSTITUTION: Final[Pattern] = Pattern(
+    "ORG",
+    re.compile(
+        r"\b(?:[A-Z][\w&.'\u2019-]*\s+(?:of\s+|and\s+|the\s+)?){1,4}"
+        r"(?:University|College|Institute|Institution|School|Academy|Polytechnic|Seminary)"
+        r"(?:\s+of\s+(?:[A-Z][\w&.'\u2019-]*(?:\s+and)?\s*){1,3})?"
+        r"|\b(?:University|College|Institute|School|Academy|Polytechnic)"
+        r"\s+of\s+(?:[A-Z][\w&.'\u2019-]*(?:\s+and)?\s*){1,3}"
+    ),
+)
+
+
 # Entities that are DELETED rather than tokenised.
 #
 # Pseudonymisation is the right default: a recruiter re-hydrates PERSON_1 to
@@ -476,6 +511,23 @@ DEGREE_TERMS: Final[frozenset[str]] = frozenset(
         "management",
         "cybersecurity",
         "security",
+        # Abbreviated fields. Without these "B.Tech CS" failed the
+        # all-tokens test and the NER span over it was redacted as a
+        # PERSON — the degree destroyed again, by a different route than
+        # the one ADR-0017 found.
+        "cs",
+        "cse",
+        "ece",
+        "eee",
+        "ee",
+        "it",
+        "ai",
+        "ml",
+        "ds",
+        "btech",
+        "mtech",
+        "bsc",
+        "msc",
     )
 )
 

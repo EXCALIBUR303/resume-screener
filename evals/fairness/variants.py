@@ -52,7 +52,7 @@ Mitigated man-in-the-middle attacks by pinning certificates.
 Reduced cache miss rate from 40% to 6% and handled 50000 concurrent connections.
 {extra_experience}
 EDUCATION
-B.Tech Computer Science, Imaginary Institute, {grad_year}
+B.Tech Computer Science, {institution}, {grad_year}
 
 TECHNICAL SKILLS
 Python, PostgreSQL, Kubernetes, Docker, Redis
@@ -142,6 +142,19 @@ CAREER_GAPS: tuple[str, ...] = (
 
 GRAD_YEAR_OFFSETS: tuple[str, ...] = ("as_built", "minus_10", "minus_20")
 
+# An institution is a proxy for background in the way a graduation year is a
+# proxy for age. Deliberately mixes names NER recognises (Stanford, MIT) with
+# ones it does not (Nowhere Polytechnic), because before ADR-0023 which
+# candidates got theirs removed depended on exactly that.
+INSTITUTIONS: tuple[str, ...] = (
+    "Imaginary Institute of Technology",
+    "Stanford University",
+    "Nowhere Polytechnic",
+    "Placeholder School of Engineering",
+    "Fictional Academy",
+    "Notreal State University",
+)
+
 LOCATIONS: tuple[str, ...] = (
     "",
     "Nowhere City, Imaginaria",
@@ -207,6 +220,14 @@ AXES: tuple[Axis, ...] = (
         "not do is treat parental leave differently from a sabbatical.",
     ),
     Axis(
+        "institution",
+        INSTITUTIONS,
+        removable=True,
+        rationale="Every institution reduces to the same token, whether or not "
+        "NER recognises the name. Which candidates get theirs removed must not "
+        "depend on a statistical model's coverage.",
+    ),
+    Axis(
         "graduation_year",
         GRAD_YEAR_OFFSETS,
         removable=False,
@@ -217,7 +238,8 @@ AXES: tuple[Axis, ...] = (
 
 
 def _render(base: Base, *, name: str, marker: str, personal: str, affinity: str,
-            location: str, gap: str, grad_year: int) -> tuple[str, str]:
+            location: str, gap: str, grad_year: int,
+            institution: str = "Imaginary Institute") -> tuple[str, str]:
     header_lines = [f"{name} {SURNAME}"]
     contact = f"{name.lower()}@example.com | +91 90000 00000"
     if marker:
@@ -240,6 +262,7 @@ def _render(base: Base, *, name: str, marker: str, personal: str, affinity: str,
         years=base.years,
         start=2026 - base.years,
         grad_year=grad_year,
+        institution=institution,
         extra_experience=("\n".join(extra) + "\n") if extra else "",
     )
     return header + "\n" + body + "\n" + MARKER + "\n", header
@@ -257,6 +280,7 @@ def counterfactual_set(base: Base, axis: Axis) -> list[Variant]:
             "location": "",
             "gap": "",
             "grad_year": base.grad_year,
+            "institution": "Imaginary Institute",
         }
         match axis.name:
             case "control":
@@ -269,6 +293,8 @@ def counterfactual_set(base: Base, axis: Axis) -> list[Variant]:
                 kwargs["personal"] = setting
             case "affinity_group":
                 kwargs["affinity"] = setting
+            case "institution":
+                kwargs["institution"] = setting
             case "location":
                 kwargs["location"] = setting
             case "career_gap":
