@@ -104,3 +104,69 @@ def test_readyz_reports_whether_the_ssrf_check_is_on() -> None:
     with TestClient(create_app(settings)) as client:
         body = client.get("/readyz").json()
     assert body["webhook_ssrf_check_enabled"] is False
+
+
+def test_env_example_produces_a_valid_settings_object() -> None:
+    """`.env.example` is the file every new developer copies, and nothing checked it.
+
+    Two of my own additions broke it, and CI found out by failing to start
+    every container in the stack:
+
+    * `LLM_FALLBACK_PROVIDER=   # "", stub, ollama, ...` — a quote character
+      inside an inline comment stops both Compose's env_file parser and
+      pydantic-settings from recognising it as a comment, so the whole
+      `# ...` string became the value and failed the Literal.
+    * `LLM_PROMPT_VERSION=` — `KEY=` parses as the empty string rather than as
+      unset, and `""` is not an `int | None`.
+
+    A cold start in CI catches this three minutes and a whole stack later. This
+    catches it in milliseconds, which is the difference between finding it
+    before pushing and finding it after.
+    """
+    import pathlib
+
+    from screener_api.settings import Settings
+
+    example = pathlib.Path(__file__).resolve().parents[3] / ".env.example"
+    assert example.is_file(), "the environment contract is missing"
+
+    settings = Settings(_env_file=str(example), _env_file_encoding="utf-8")
+
+    # Spot-check values whose comment sits on the same line, since that is the
+    # shape that goes wrong: a stray comment shows up as part of the value.
+    assert settings.app_env == "dev"
+    assert settings.llm_model == "qwen3:8b"
+    assert "#" not in str(settings.storage_local_path)
+    assert settings.llm_api_key.get_secret_value() == ""
+    assert settings.llm_fallback_provider == ""
+    assert settings.llm_prompt_version is None
+
+
+def test_no_empty_value_carries_an_inline_comment() -> None:
+    """The exact shape that breaks the parser, pinned so it cannot come back.
+
+    `KEY=value  # note` strips fine. `KEY=  # note` does not: with nothing
+    before the `#`, neither Compose's env_file parser nor pydantic-settings
+    treats it as a comment, and the whole `# ...` string becomes the value.
+
+    My first version of this test blamed the quote characters in my comment.
+    That was wrong, and the test proved it by failing on
+    `APP_ENV=dev  # ... Anything but "dev" ...`, which is fine. It also caught
+    a pre-existing one: `LLM_API_KEY=` had carried its own comment as its value
+    since M6 — invisible with Ollama, which ignores the key, and an
+    `Authorization: Bearer # Only for openai_compatible...` header the moment
+    anyone switched provider.
+    """
+    import pathlib
+    import re
+
+    example = pathlib.Path(__file__).resolve().parents[3] / ".env.example"
+    offenders = [
+        line
+        for line in example.read_text().splitlines()
+        if re.match(r"^[A-Z_][A-Z0-9_]*=[ \t]*#", line)
+    ]
+    assert not offenders, (
+        "an inline comment after an empty value becomes the value; move it to "
+        "its own line: " + "; ".join(offenders)
+    )
