@@ -20,6 +20,8 @@ from screener_api.llm.gateway import LLMGateway, SchemaViolationError
 from screener_api.llm.prompts import PromptTemplate
 from screener_api.llm.provider import LLMError
 from screener_api.models import JobPosting, Match, Resume, ResumeText
+from screener_api.outbox.events import EventType
+from screener_api.outbox.events import record as record_event
 from screener_api.queue import TerminalError
 from screener_api.retrieval.search import RRF_K, Hit, hybrid_search
 from screener_api.scoring.contracts import MATCH_SCORE_SCHEMA, RubricAssessment
@@ -222,6 +224,36 @@ async def handle_score_job(
 
     if existing is None:
         session.add(record)
+
+    # The outbox row and the match row commit together. A webhook posted from
+    # here instead would announce a score for a transaction that could still
+    # roll back, and no retry policy repairs an event for something that never
+    # happened (ADR-0018).
+    await record_event(
+        session,
+        org_id=resume.org_id,
+        event_type=EventType.RESUME_SCORED,
+        resource_type="match",
+        resource_id=str(record.id),
+        payload={
+            "match_id": str(record.id),
+            "resume_id": str(resume_id),
+            "job_id": str(job_id),
+            "score": fused.total,
+            "degraded": fused.degraded,
+            "partially_supported": fused.partially_supported,
+            "injection_suspected": fused.injection_suspected,
+            "keyword_stuffing": fused.keyword_stuffing,
+            "hard_gate_failures": fused.hard_gate_failures,
+            "matched_skill_count": len(deterministic.matched_skills),
+            "missing_skill_count": len(deterministic.missing_skills),
+            "model_id": gateway.provider.model_id,
+            "prompt_version": prompt.version_id,
+        },
+        event_key=(
+            f"resume.scored:{job_id}:{resume_id}:{prompt.version_id}:{gateway.provider.model_id}"
+        ),
+    )
 
     log.info(
         "score.completed",

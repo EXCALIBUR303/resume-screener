@@ -58,3 +58,49 @@ def test_secrets_do_not_leak_through_model_dump() -> None:
 def test_dsn_is_still_reachable_deliberately() -> None:
     """The password is available where it is actually needed, just not by accident."""
     assert "real-password" in Settings(**_base()).dsn
+
+
+def test_the_webhook_ssrf_bypass_is_refused_outside_dev() -> None:
+    """A flag that disables a security control must not be settable in prod.
+
+    WEBHOOK_ALLOW_PRIVATE_DESTINATIONS turns off the address check on
+    tenant-supplied webhook URLs — the check that stops a "webhook" pointed at
+    the instance metadata service. It exists for local demonstration and the
+    process refuses to boot with it set anywhere else (ADR-0018).
+    """
+    import pytest
+
+    from screener_api.settings import Settings
+
+    common = {
+        "postgres_password": "real-value",
+        "app_kek": "real-value",
+        "jwt_secret": "real-value",
+        "webhook_allow_private_destinations": True,
+    }
+    # Allowed in dev, which is the only place it is meant to be used.
+    assert Settings(app_env="dev", **common).webhook_allow_private_destinations
+
+    for env in ("test", "prod"):
+        with pytest.raises(ValueError, match="WEBHOOK_ALLOW_PRIVATE_DESTINATIONS"):
+            Settings(app_env=env, **common)
+
+
+def test_readyz_reports_whether_the_ssrf_check_is_on() -> None:
+    """A disabled control should be visible on the instance, not only in a
+    .env file nobody reading /readyz can see."""
+    from fastapi.testclient import TestClient
+
+    from screener_api.main import create_app
+    from screener_api.settings import Settings
+
+    settings = Settings(
+        app_env="dev",
+        postgres_password="x",
+        app_kek="x",
+        jwt_secret="x",
+        webhook_allow_private_destinations=True,
+    )
+    with TestClient(create_app(settings)) as client:
+        body = client.get("/readyz").json()
+    assert body["webhook_ssrf_check_enabled"] is False

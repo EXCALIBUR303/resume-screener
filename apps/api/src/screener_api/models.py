@@ -415,3 +415,90 @@ class Match(Base):
     prompt_version: Mapped[str] = mapped_column(String(40), nullable=False)
     prompt_hash: Mapped[str] = mapped_column(String(64), nullable=False)
     created_at: Mapped[dt.datetime] = _now()
+
+
+class WebhookEndpoint(Base):
+    """Where a tenant wants to be told that something happened.
+
+    The URL is tenant-supplied and fetched by our infrastructure, so it is
+    validated as an SSRF destination before it is ever stored — see
+    `outbox/ssrf.py`. Storing first and validating at delivery time would leave
+    a queue of requests aimed at the metadata service.
+    """
+
+    __tablename__ = "webhook_endpoints"
+    __table_args__ = (UniqueConstraint("org_id", "url", name="uq_webhook_org_url"),)
+
+    id: Mapped[uuid.UUID] = _pk()
+    org_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    url: Mapped[str] = mapped_column(String(2048), nullable=False)
+    description: Mapped[str] = mapped_column(String(200), nullable=False, default="")
+    # AES-256-GCM envelope, org_id as AAD, same as every other secret here. The
+    # signing key never appears in a log, a response body or a backup in clear.
+    secret_ciphertext: Mapped[bytes] = mapped_column(LargeBinary, nullable=False)
+    event_types: Mapped[list[str]] = mapped_column(JSONB, nullable=False, default=list)
+    is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    # Set when deliveries keep failing. A dead endpoint is disabled rather than
+    # retried forever: a tenant who deleted their receiver should not cost us a
+    # delivery attempt every minute in perpetuity.
+    disabled_reason: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    consecutive_failures: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    created_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)
+    created_at: Mapped[dt.datetime] = _now()
+
+
+class OutboxEvent(Base):
+    """A domain event, written in the same transaction as the change it describes.
+
+    This table is the reason the project can promise a webhook and a score are
+    consistent. Posting an HTTP request from inside `handle_score_job` would
+    send a "resume.scored" for a transaction that then rolled back, and no
+    amount of retry logic fixes an event for something that never happened.
+    Writing a row instead makes the event part of the same commit: if the score
+    is not durable, neither is the notification.
+
+    The cost is that delivery is at-least-once and asynchronous. Receivers must
+    be idempotent, which is what `event_key` is for — it is stable across
+    redeliveries and documented as the deduplication key.
+    """
+
+    __tablename__ = "outbox_events"
+    __table_args__ = (
+        UniqueConstraint("event_key", name="uq_outbox_event_key"),
+        # The relay scans for deliverable work almost exclusively, and the
+        # table is mostly delivered rows. Same reasoning as job_queue.
+        Index(
+            "ix_outbox_deliverable",
+            "next_attempt_at",
+            postgresql_where=text("status = 'pending'"),
+        ),
+    )
+
+    id: Mapped[uuid.UUID] = _pk()
+    org_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    event_type: Mapped[str] = mapped_column(String(60), nullable=False)
+    resource_type: Mapped[str] = mapped_column(String(60), nullable=False)
+    resource_id: Mapped[str] = mapped_column(String(120), nullable=False)
+    # Identifiers and non-identifying metadata ONLY. Same rule as the audit
+    # log, and for a stronger reason: this payload leaves our network for a URL
+    # a tenant chose. A candidate's name must never be in here.
+    payload: Mapped[dict[str, object]] = mapped_column(JSONB, nullable=False, default=dict)
+    # Stable across redeliveries. Receivers deduplicate on it.
+    event_key: Mapped[str] = mapped_column(String(120), nullable=False)
+
+    status: Mapped[str] = mapped_column(String(20), nullable=False, default="pending")
+    attempts: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    max_attempts: Mapped[int] = mapped_column(Integer, nullable=False, default=8)
+    next_attempt_at: Mapped[dt.datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    locked_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    locked_by: Mapped[str | None] = mapped_column(String(80), nullable=True)
+    last_error: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    last_status_code: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    delivered_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[dt.datetime] = _now()

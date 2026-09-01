@@ -162,6 +162,24 @@ class Settings(BaseSettings):
                 found.append(name.upper())
         return found
 
+    # Lets a webhook be pointed at a container on the compose network so the
+    # relay can be demonstrated locally. It disables an SSRF control, so it is
+    # refused outside dev by the validator below and reported by /readyz — an
+    # operator must be able to see that this is off without taking it on faith.
+    webhook_allow_private_destinations: bool = False
+
+    @model_validator(mode="after")
+    def _refuse_private_webhook_destinations_outside_dev(self) -> Settings:
+        if self.webhook_allow_private_destinations and self.app_env != "dev":
+            raise ValueError(
+                f"Refusing to start with APP_ENV={self.app_env} and "
+                f"WEBHOOK_ALLOW_PRIVATE_DESTINATIONS=true. That flag turns off the "
+                f"SSRF check on tenant-supplied webhook URLs, which is what stops a "
+                f"'webhook' pointed at the instance metadata service. It exists for "
+                f"local demonstration only."
+            )
+        return self
+
     @model_validator(mode="after")
     def _refuse_placeholder_secrets_outside_dev(self) -> Settings:
         if self.app_env == "dev":

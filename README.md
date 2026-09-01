@@ -256,6 +256,12 @@ and whether the strongest claim holds, so nobody has to take the README's word f
 - **Institution redaction is inconsistent.** NER catches `Stanford University` and misses
   `Imaginary Institute`, and an institution is a proxy for background. Measured, recorded in
   ADR-0017, not solved.
+- **Webhook delivery does not close the DNS rebinding window.** A URL is
+  validated and then resolved again at connect time. The pin-the-IP defence was
+  measured and rejected: certificate verification did not follow
+  `sni_hostname`, so adopting it would have accepted any certificate. Recorded
+  in [ADR-0018](docs/adr/0018-transactional-outbox-and-webhook-egress.md),
+  not solved.
 - **A stored score is reproducible only up to its prompt *template*.** The rendered prompt carries
   a per-request nonce and freshly generated chunk ids, so re-scoring the same resume can return a
   different number. `matches.prompt_hash` identifies the template, not the render.
@@ -269,7 +275,7 @@ and whether the strongest claim holds, so nobody has to take the README's word f
 
 ## What I learned
 
-Seventeen [ADRs](docs/adr/) record the decisions. Six where I was wrong, and the measurement that
+Eighteen [ADRs](docs/adr/) record the decisions. Six where I was wrong, and the measurement that
 showed it:
 
 **I claimed the deterministic score was "mathematically immune to injection." It wasn't.**

@@ -536,9 +536,13 @@ _ENCLOSING_PARENS = re.compile(r"\([ \t]*" + _DELETED + r"[ \t]*\)")
 # separator before the deletion is consumed and the one after it is left for
 # the next item in the list.
 _SENTINEL_WITH_ONE_SEPARATOR = re.compile(
-    r"[ \t]*[|,;·][ \t]*" + _DELETED  # " | X"  -> ""
-    + r"|" + _DELETED + r"[ \t]*[|,;·][ \t]*"  # "X | "  -> ""
-    + r"|" + _DELETED  # bare
+    r"[ \t]*[|,;·][ \t]*"
+    + _DELETED  # " | X"  -> ""
+    + r"|"
+    + _DELETED
+    + r"[ \t]*[|,;·][ \t]*"  # "X | "  -> ""
+    + r"|"
+    + _DELETED  # bare
 )
 
 

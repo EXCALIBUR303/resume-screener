@@ -86,7 +86,10 @@ async def session(postgres) -> AsyncIterator[AsyncSession]:
         # Leave the schema in place; wipe the data so tests stay independent.
         await s.rollback()
         await s.execute(
-            text("TRUNCATE organizations, job_queue, audit_events RESTART IDENTITY CASCADE")
+            text(
+                "TRUNCATE organizations, job_queue, audit_events, outbox_events, "
+                "webhook_endpoints RESTART IDENTITY CASCADE"
+            )
         )
         await s.commit()
     await engine.dispose()
@@ -646,3 +649,264 @@ async def test_retrieval_order_is_reproducible(session: AsyncSession) -> None:
     v1 = await vector_search(session, org_id=org.id, query_vector=qv, limit=20)
     v2 = await vector_search(session, org_id=org.id, query_vector=qv, limit=20)
     assert [h.chunk_id for h in v1] == [h.chunk_id for h in v2]
+
+
+# --------------------------------------------------------------------------- #
+#  Transactional outbox (M14, ADR-0018)
+# --------------------------------------------------------------------------- #
+
+
+async def test_a_rolled_back_transaction_leaves_no_event(session: AsyncSession) -> None:
+    """The whole justification for the outbox, stated as a test.
+
+    Posting an HTTP request from inside the scoring handler would announce a
+    score for a transaction that then rolled back, and no retry policy repairs
+    an event for something that never happened. Writing a row instead makes the
+    event part of the same commit.
+    """
+    from screener_api.models import OutboxEvent
+    from screener_api.outbox.events import EventType, record
+
+    org = await _org(session, "Outbox Org")
+    await session.commit()
+
+    await record(
+        session,
+        org_id=org.id,
+        event_type=EventType.RESUME_SCORED,
+        resource_type="match",
+        resource_id="doomed",
+        payload={"score": 0.9},
+        event_key="doomed-event",
+    )
+    # The work this event describes fails after the event was recorded.
+    await session.rollback()
+
+    rows = (await session.execute(select(OutboxEvent))).scalars().all()
+    assert rows == []
+
+
+async def test_a_committed_change_and_its_event_arrive_together(
+    session: AsyncSession,
+) -> None:
+    from screener_api.models import OutboxEvent
+    from screener_api.outbox.events import EventType, record
+
+    org = await _org(session, "Outbox Org 2")
+    await record(
+        session,
+        org_id=org.id,
+        event_type=EventType.RESUME_SCORED,
+        resource_type="match",
+        resource_id="kept",
+        payload={"score": 0.9},
+        event_key="kept-event",
+    )
+    await session.commit()
+
+    rows = (await session.execute(select(OutboxEvent))).scalars().all()
+    assert [r.resource_id for r in rows] == ["kept"]
+    assert rows[0].status == "pending"
+
+
+async def test_recording_the_same_event_twice_produces_one_row(
+    session: AsyncSession,
+) -> None:
+    """Two workers racing on the same resource must produce one event. The
+    uniqueness is a database constraint, not a check-then-insert, for the same
+    reason the job queue's is."""
+    from screener_api.models import OutboxEvent
+    from screener_api.outbox.events import EventType, record
+
+    org = await _org(session, "Outbox Org 3")
+    first = await record(
+        session,
+        org_id=org.id,
+        event_type=EventType.RESUME_PARSED,
+        resource_type="resume",
+        resource_id="r1",
+        payload={},
+        event_key="same-key",
+    )
+    second = await record(
+        session,
+        org_id=org.id,
+        event_type=EventType.RESUME_PARSED,
+        resource_type="resume",
+        resource_id="r1",
+        payload={},
+        event_key="same-key",
+    )
+    await session.commit()
+
+    assert first is not None
+    assert second is None  # already recorded
+    rows = (await session.execute(select(OutboxEvent))).scalars().all()
+    assert len(rows) == 1
+
+
+async def test_deleting_an_organisation_removes_its_outbox_and_endpoints(
+    session: AsyncSession,
+) -> None:
+    """Erasure must not strand a queue of pending notifications about a tenant
+    that no longer exists — they would still be delivered."""
+    from screener_api.models import OutboxEvent, WebhookEndpoint
+    from screener_api.outbox.events import EventType, record
+
+    org = await _org(session, "Outbox Org 4")
+    session.add(
+        WebhookEndpoint(
+            id=uuid.uuid4(),
+            org_id=org.id,
+            url="https://hooks.example/x",
+            secret_ciphertext=b"\x00",
+            event_types=[],
+        )
+    )
+    await record(
+        session,
+        org_id=org.id,
+        event_type=EventType.RESUME_PARSED,
+        resource_type="resume",
+        resource_id="r",
+        payload={},
+        event_key="cascade-key",
+    )
+    await session.commit()
+
+    await session.execute(text("DELETE FROM organizations WHERE id = :id"), {"id": org.id})
+    await session.commit()
+
+    assert (await session.execute(select(OutboxEvent))).scalars().all() == []
+    assert (await session.execute(select(WebhookEndpoint))).scalars().all() == []
+
+
+async def test_the_relay_claims_decrypts_signs_and_settles(session: AsyncSession) -> None:
+    """The delivery loop end to end against a real database.
+
+    Deliberately NOT proven by pointing the running relay at a local HTTP
+    server. That would need two security controls relaxed at once — the SSRF
+    address check *and* the https-only rule — and a demo is not worth a second
+    bypass. A mock transport exercises claim -> endpoints_for -> decrypt ->
+    sign -> deliver -> settle, which is every step that touches the database.
+    """
+    import httpx
+
+    from screener_api.models import OutboxEvent, WebhookEndpoint
+    from screener_api.outbox.events import EventType, record
+    from screener_api.outbox.relay import claim, process
+    from screener_api.outbox.signing import verify
+    from screener_api.security.crypto import WEBHOOK_KEY_PURPOSE, derive_kek, encrypt
+
+    org = await _org(session, "Relay Org")
+    kek = derive_kek("test-kek", 1, purpose=WEBHOOK_KEY_PURPOSE)
+    secret = b"0123456789abcdef0123456789abcdef"
+    envelope = encrypt(secret, kek=kek, kek_version=1, aad=str(org.id).encode())
+
+    session.add(
+        WebhookEndpoint(
+            id=uuid.uuid4(),
+            org_id=org.id,
+            url="https://hooks.example/inbound",
+            secret_ciphertext=envelope.to_bytes(),
+            event_types=[],
+        )
+    )
+    await record(
+        session,
+        org_id=org.id,
+        event_type=EventType.RESUME_SCORED,
+        resource_type="match",
+        resource_id="m1",
+        payload={"score": 0.75},
+        event_key="relay-e2e",
+    )
+    await session.commit()
+
+    seen: dict[str, httpx.Request] = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen["request"] = request
+        return httpx.Response(204)
+
+    claimed = await claim(session, worker="test-relay", limit=10)
+    assert len(claimed) == 1
+    assert claimed[0].status == "delivering"
+    assert claimed[0].attempts == 1
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        outcome = await process(
+            session, client, claimed[0], kek=kek, now=1_800_000_000, allow_private=True
+        )
+    await session.commit()
+
+    assert outcome.delivered
+    # The signature the receiver would check, checked here with the secret that
+    # came back out of the envelope — so the encrypt/store/decrypt round trip is
+    # part of the assertion rather than assumed.
+    request = seen["request"]
+    assert verify(
+        secret,
+        timestamp=int(request.headers["x-screener-timestamp"]),
+        body=request.content,
+        signature=request.headers["x-screener-signature"],
+        now=1_800_000_000,
+    )
+
+    settled = (await session.execute(select(OutboxEvent))).scalar_one()
+    assert settled.status == "delivered"
+    assert settled.delivered_at is not None
+    assert settled.last_status_code == 204
+
+    # A second pass finds nothing: a delivered event is not re-claimed.
+    assert await claim(session, worker="test-relay", limit=10) == []
+
+
+async def test_an_endpoint_whose_url_turned_private_is_disabled_not_retried(
+    session: AsyncSession,
+) -> None:
+    """URLs are re-validated on every attempt, not trusted from creation time.
+
+    An endpoint stored months ago points at whatever its DNS says today, and
+    "today" may be 169.254.169.254.
+    """
+    import httpx
+
+    from screener_api.models import WebhookEndpoint
+    from screener_api.outbox.events import EventType, record
+    from screener_api.outbox.relay import claim, process
+    from screener_api.security.crypto import WEBHOOK_KEY_PURPOSE, derive_kek, encrypt
+
+    org = await _org(session, "Rebind Org")
+    kek = derive_kek("test-kek", 1, purpose=WEBHOOK_KEY_PURPOSE)
+    envelope = encrypt(b"s" * 32, kek=kek, kek_version=1, aad=str(org.id).encode())
+    session.add(
+        WebhookEndpoint(
+            id=uuid.uuid4(),
+            org_id=org.id,
+            # Plaintext: refused by the scheme check regardless of DNS.
+            url="http://hooks.example/inbound",
+            secret_ciphertext=envelope.to_bytes(),
+            event_types=[],
+        )
+    )
+    await record(
+        session,
+        org_id=org.id,
+        event_type=EventType.RESUME_PARSED,
+        resource_type="resume",
+        resource_id="r",
+        payload={},
+        event_key="rebind-e2e",
+    )
+    await session.commit()
+
+    claimed = await claim(session, worker="test-relay", limit=10)
+    async with httpx.AsyncClient(transport=httpx.MockTransport(lambda r: None)) as client:
+        outcome = await process(session, client, claimed[0], kek=kek, now=1_800_000_000)
+    await session.commit()
+
+    assert not outcome.delivered
+    endpoint = (await session.execute(select(WebhookEndpoint))).scalar_one()
+    assert not endpoint.is_active
+    assert endpoint.disabled_reason is not None and "refused" in endpoint.disabled_reason

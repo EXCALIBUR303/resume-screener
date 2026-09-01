@@ -61,20 +61,38 @@ class Envelope:
         return cls(kek_version=version, wrapped_dek=wrapped, ciphertext=raw[pos:])
 
 
-def derive_kek(secret: str, version: int) -> bytes:
+def derive_kek(secret: str, version: int, *, purpose: str = "") -> bytes:
     """Derive a 32-byte KEK from the configured secret.
 
     Versioned: `make rotate-kek` bumps the version, derives a new KEK, and
     re-wraps every DEK. Old versions must remain resolvable until rotation
     completes, which is why the version travels inside the envelope.
+
+    ``purpose`` puts different kinds of secret under different keys. The
+    webhook relay needs to decrypt endpoint signing secrets and it reaches
+    tenant-controlled URLs on the public internet, which is a much larger
+    attack surface than the rest of the system has. Deriving its key with
+    ``purpose="webhook"`` means the key that process holds cannot open a
+    candidate's PII map.
+
+    **What this does not do:** anyone holding `APP_KEK` can derive both keys.
+    This is domain separation, not isolation from an attacker who has the root
+    secret. What it buys is that a compromise confined to the relay — a leaked
+    derived key, a memory disclosure in the process that talks to the internet —
+    does not hand over candidate data. The default is empty so every envelope
+    written before this existed still decrypts.
     """
+    salt = f"screener-kek-v{version}" + (f"-{purpose}" if purpose else "")
     return hashlib.pbkdf2_hmac(
         "sha256",
         secret.encode(),
-        f"screener-kek-v{version}".encode(),
+        salt.encode(),
         iterations=200_000,
         dklen=KEY_BYTES,
     )
+
+
+WEBHOOK_KEY_PURPOSE = "webhook"
 
 
 def encrypt(

@@ -23,6 +23,7 @@ from screener_api.routers import (
     interviews,
     jobs,
     resumes,
+    webhooks,
 )
 from screener_api.settings import Settings, get_settings
 
@@ -73,6 +74,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(candidates.router)
     app.include_router(jobs.router)
     app.include_router(interviews.router)
+    app.include_router(webhooks.router)
 
     if settings.metrics_enabled:
 
@@ -111,8 +113,24 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         """Readiness: can we actually serve? Checks the database and pgvector."""
         from screener_api.db import _sessionmaker
 
+        # Posture is reported on EVERY path, including the failing ones. It is
+        # read from configuration and does not depend on the database, and the
+        # moment an operator most needs to know which guarantees hold on an
+        # instance is the moment that instance is unhealthy. The first version
+        # returned these only on the success path.
+        posture: dict[str, Any] = {
+            "deployment_mode": settings.deployment_mode,
+            # The security claim differs between modes. An operator should see
+            # which guarantees actually hold here, not read the README and
+            # assume (ADR-0016).
+            "parse_worker_network_isolated": settings.worker_parse_is_network_isolated,
+            # True is the safe value. Reported because a disabled SSRF check
+            # should be visible on the instance, not only in its .env (ADR-0018).
+            "webhook_ssrf_check_enabled": not settings.webhook_allow_private_destinations,
+        }
+
         if _sessionmaker is None:
-            return {"status": "starting", "database": "not-initialised"}
+            return {"status": "starting", "database": "not-initialised", **posture}
         try:
             async with _sessionmaker() as session:
                 version = (
@@ -122,17 +140,12 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 ).scalar_one_or_none()
         except Exception as exc:
             log.warning("readyz.database_unreachable", error=type(exc).__name__)
-            return {"status": "degraded", "database": "unreachable"}
+            return {"status": "degraded", "database": "unreachable", **posture}
         return {
             "status": "ok" if version else "degraded",
             "database": "ok",
             "pgvector": version or "missing",
-            "deployment_mode": settings.deployment_mode,
-            # Surfaced because the security claim differs between modes. An
-            # operator looking at a deployed instance should be able to see
-            # which guarantees actually hold there, not read the README and
-            # assume.
-            "parse_worker_network_isolated": settings.worker_parse_is_network_isolated,
+            **posture,
         }
 
     return app

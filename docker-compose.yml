@@ -93,6 +93,33 @@ services:
     volumes: ["blobs:/data/files"]
     restart: unless-stopped
 
+  # A third pool, and the split is about privilege rather than throughput.
+  # worker-parse has NO network. worker-ai reaches one destination we control,
+  # the model host. This one reaches URLs a TENANT typed in, anywhere on the
+  # public internet — the largest egress surface in the system. Putting that in
+  # the same process as the scoring pipeline would hand an attacker who reached
+  # the pipeline a way out (ADR-0018).
+  #
+  # It also holds a different key: derived with purpose="webhook", so the key
+  # this process can use decrypts endpoint signing secrets and cannot open a
+  # candidate's PII map. No blobs volume — it never reads an uploaded file.
+  worker-webhook:
+    build:
+      context: .
+      dockerfile: infra/docker/Dockerfile.worker
+    command: ["python", "-m", "screener_api.relay_worker"]
+    env_file: [.env]
+    environment:
+      POSTGRES_HOST: db
+    depends_on:
+      db: { condition: service_healthy }
+    read_only: true
+    tmpfs: ["/tmp"]
+    cap_drop: ["ALL"]
+    security_opt: ["no-new-privileges:true"]
+    mem_limit: 512m
+    restart: unless-stopped
+
   # Opt-in: `docker compose --profile observability up -d`
   prometheus:
     image: prom/prometheus:v3.1.0

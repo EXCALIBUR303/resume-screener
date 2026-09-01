@@ -14,6 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from screener_api.ingest.storage import BlobStore
 from screener_api.ingest.validation import DOCX_MIME, PDF_MIME
 from screener_api.models import PiiMap, Resume, ResumeText, StoredFile
+from screener_api.outbox.events import EventType, record
 from screener_api.parse.extract import (
     Extraction,
     ExtractionError,
@@ -191,6 +192,24 @@ async def handle_parse_job(
         resume_id=str(resume_id),
         entities=redaction.entity_count,
         counts=redaction.counts,
+    )
+
+    # Same transaction as the parse result. If the commit below fails, the
+    # notification does not exist either — which is the whole reason this is a
+    # table and not an HTTP call (ADR-0018).
+    await record(
+        session,
+        org_id=resume.org_id,
+        event_type=EventType.RESUME_PARSED,
+        resource_type="resume",
+        resource_id=str(resume_id),
+        payload={
+            "resume_id": str(resume_id),
+            "candidate_id": str(resume.candidate_id),
+            "parse_status": str(outcome.status),
+            "pipeline_version": PIPELINE_VERSION,
+        },
+        event_key=f"resume.parsed:{resume_id}:{PIPELINE_VERSION}",
     )
 
     log.info(
