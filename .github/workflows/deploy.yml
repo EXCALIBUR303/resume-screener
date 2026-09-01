@@ -85,24 +85,31 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
+      # OCI references must be all-lowercase. github.repository preserves the
+      # actual GitHub username's case, which broke release.yml's cosign step
+      # the same way on 2026-09-01 — fixed there by computing this once
+      # instead of inlining github.repository at each use.
+      - id: repo
+        run: echo "lower=$(echo '${{ github.repository }}' | tr '[:upper:]' '[:lower:]')" >> "$GITHUB_OUTPUT"
+
       # Tagged by commit SHA and pushed by digest, so a rollback is redeploying
       # the previous digest rather than rebuilding and hoping.
       - name: Build and push api
         run: |
           docker build -f infra/docker/Dockerfile.api \
-            -t ghcr.io/${{ github.repository }}/api:${{ github.sha }} .
-          docker push ghcr.io/${{ github.repository }}/api:${{ github.sha }}
+            -t ghcr.io/${{ steps.repo.outputs.lower }}/api:${{ github.sha }} .
+          docker push ghcr.io/${{ steps.repo.outputs.lower }}/api:${{ github.sha }}
       - name: Build and push worker
         run: |
           docker build -f infra/docker/Dockerfile.worker \
-            -t ghcr.io/${{ github.repository }}/worker:${{ github.sha }} .
-          docker push ghcr.io/${{ github.repository }}/worker:${{ github.sha }}
+            -t ghcr.io/${{ steps.repo.outputs.lower }}/worker:${{ github.sha }} .
+          docker push ghcr.io/${{ steps.repo.outputs.lower }}/worker:${{ github.sha }}
       - name: Record the digests for rollback
         run: |
           docker inspect --format='{{index .RepoDigests 0}}' \
-            ghcr.io/${{ github.repository }}/api:${{ github.sha }} | tee digests.txt
+            ghcr.io/${{ steps.repo.outputs.lower }}/api:${{ github.sha }} | tee digests.txt
           docker inspect --format='{{index .RepoDigests 0}}' \
-            ghcr.io/${{ github.repository }}/worker:${{ github.sha }} | tee -a digests.txt
+            ghcr.io/${{ steps.repo.outputs.lower }}/worker:${{ github.sha }} | tee -a digests.txt
       - uses: actions/upload-artifact@v4
         with:
           name: image-digests
