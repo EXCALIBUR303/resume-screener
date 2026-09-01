@@ -22,7 +22,9 @@ from typing import Any
 import structlog
 
 from screener_api.db import dispose_engine, init_engine
-from screener_api.ingest.storage import BlobStore
+from screener_api.health import Heartbeat
+from screener_api.health import serve as serve_health
+from screener_api.ingest.storage import build_store
 from screener_api.llm.factory import build_gateway
 from screener_api.llm.prompts import active_version, load
 from screener_api.logging import configure_logging
@@ -84,7 +86,7 @@ async def run() -> int:
         raise RuntimeError("engine not initialised")
 
     kek = derive_kek(settings.app_kek.get_secret_value(), settings.app_kek_version)
-    store = BlobStore(settings.storage_local_path, kek=kek, kek_version=settings.app_kek_version)
+    store = build_store(settings, kek=kek, kek_version=settings.app_kek_version)
 
     # Built once per process: the gateway carries the token budget and circuit
     # breaker, which must be shared across jobs to mean anything.
@@ -97,9 +99,21 @@ async def run() -> int:
         prompt=prompt.version_id,
         prompt_hash=prompt.content_hash[:12],
     )
+
+    # A host that runs single containers (Hugging Face Spaces and similar)
+    # checks that something answers on a port before calling the deployment
+    # healthy. This worker has no other reason to listen — HEALTH_PORT unset
+    # means "no such host" and nothing starts, which is the local/compose
+    # default and keeps this an opt-in rather than a surprise open port.
+    heartbeat = Heartbeat()
+    health_server = None
+    if health_port := os.environ.get("HEALTH_PORT"):
+        health_server = await serve_health(heartbeat, port=int(health_port))
+
     idle_ticks = 0
 
     while not _stopping:
+        heartbeat.beat()
         failure: tuple[Any, BaseException, ErrorClass] | None = None
         async with _sessionmaker() as session:
             # Any worker may reclaim: the sweeper does not need its own process.
@@ -162,6 +176,9 @@ async def run() -> int:
         if failure is not None:
             await _record_failure(*failure)
 
+    if health_server is not None:
+        health_server.close()
+        await health_server.wait_closed()
     await dispose_engine()
     log.info("worker.stopped")
     return 0

@@ -11,7 +11,7 @@ import structlog
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from screener_api.ingest.storage import BlobStore
+from screener_api.ingest.storage import ObjectStore
 from screener_api.ingest.validation import DOCX_MIME, PDF_MIME
 from screener_api.models import PiiMap, Resume, ResumeText, StoredFile
 from screener_api.outbox.events import EventType, record
@@ -82,7 +82,7 @@ async def handle_parse_job(
     session: AsyncSession,
     payload: dict[str, object],
     *,
-    store: BlobStore,
+    store: ObjectStore,
     kek: bytes,
     kek_version: int,
 ) -> None:

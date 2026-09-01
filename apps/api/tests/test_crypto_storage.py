@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass, field
 from pathlib import Path
 
 import pytest
@@ -280,3 +281,118 @@ def test_both_stores_satisfy_the_protocol(tmp_path) -> None:
     remote = S3BlobStore("b", kek=KEK_A, kek_version=1, client=FakeS3())
     assert isinstance(local, ObjectStore)
     assert isinstance(remote, ObjectStore)
+
+
+# ---- build_store: the one place storage_backend is read ----------------------
+#
+# Before this factory existed, worker.py and resumes.py each hardcoded
+# BlobStore directly, so STORAGE_BACKEND=s3 changed nothing: cloud mode
+# silently wrote resumes to a container's ephemeral local disk instead of the
+# configured bucket, and S3BlobStore -- tested, encrypted, content-addressed
+# the same way as the local store -- sat beside the pipeline, unreachable by
+# any real request. Found writing the cloud deployment walkthrough, not by a
+# report.
+
+
+@dataclass
+class _FakeSecret:
+    value: str
+
+    def get_secret_value(self) -> str:
+        return self.value
+
+
+@dataclass
+class _FakeSettings:
+    storage_backend: str
+    # Unused by the s3-backend tests; local-backend tests always override it.
+    storage_local_path: Path = field(default_factory=lambda: Path())
+    s3_bucket: str = ""
+    s3_endpoint_url: str = ""
+    s3_access_key_id: _FakeSecret = field(default_factory=lambda: _FakeSecret(""))
+    s3_secret_access_key: _FakeSecret = field(default_factory=lambda: _FakeSecret(""))
+
+
+def test_build_store_returns_the_local_store_by_default(tmp_path: Path) -> None:
+    from screener_api.ingest.storage import BlobStore, build_store
+
+    settings = _FakeSettings(storage_backend="local", storage_local_path=tmp_path)
+    store = build_store(settings, kek=KEK_A, kek_version=1)
+    assert isinstance(store, BlobStore)
+
+
+def test_build_store_returns_the_s3_store_when_configured(monkeypatch) -> None:
+    from screener_api.ingest.storage import S3BlobStore, build_store
+
+    captured: dict[str, object] = {}
+
+    def fake_client(service: str, **kwargs: object) -> object:
+        captured["service"] = service
+        captured["kwargs"] = kwargs
+        return FakeS3()
+
+    monkeypatch.setattr("boto3.client", fake_client)
+
+    settings = _FakeSettings(
+        storage_backend="s3",
+        s3_bucket="prod-bucket",
+        s3_endpoint_url="https://example.r2.cloudflarestorage.com",
+        s3_access_key_id=_FakeSecret("AKIA_TEST"),
+        s3_secret_access_key=_FakeSecret("shh"),
+    )
+    store = build_store(settings, kek=KEK_A, kek_version=1)
+
+    assert isinstance(store, S3BlobStore)
+    assert store.bucket == "prod-bucket"
+    # The credentials reached boto3 BY NAME, not through its ambient AWS_*
+    # environment-variable chain -- this project's settings are named
+    # S3_ACCESS_KEY_ID / S3_SECRET_ACCESS_KEY, and silently also honouring the
+    # AWS_* names would mean two names work and only one is documented, which
+    # is how a credential ends up unset in production.
+    assert captured["kwargs"] == {
+        "endpoint_url": "https://example.r2.cloudflarestorage.com",
+        "aws_access_key_id": "AKIA_TEST",
+        "aws_secret_access_key": "shh",
+    }
+
+
+def test_build_store_omits_credentials_it_was_not_given(monkeypatch) -> None:
+    """An s3 backend with no keys configured should fall through to boto3's
+    own credential resolution rather than pass explicit empty strings, which
+    botocore treats as real (and wrong) credentials rather than "unset"."""
+    from screener_api.ingest.storage import build_store
+
+    captured: dict[str, object] = {}
+    monkeypatch.setattr(
+        "boto3.client",
+        lambda service, **kwargs: captured.update(kwargs) or FakeS3(),
+    )
+
+    settings = _FakeSettings(storage_backend="s3", s3_bucket="b")
+    build_store(settings, kek=KEK_A, kek_version=1)
+
+    assert "aws_access_key_id" not in captured
+    assert "aws_secret_access_key" not in captured
+    assert "endpoint_url" not in captured
+
+
+def test_every_store_call_site_goes_through_the_factory() -> None:
+    """A guard against the exact regression this factory fixes.
+
+    Verified to actually fire before trusting it: I broke each of these by
+    hand (reverted worker.py and resumes.py to construct BlobStore directly)
+    and confirmed this test failed both times before restoring them. A test
+    that cannot fail is the same defect as the config it is guarding against.
+    """
+    import pathlib
+
+    src = pathlib.Path(__file__).resolve().parents[1] / "src" / "screener_api"
+    offenders = []
+    for path in (src / "worker.py", src / "routers" / "resumes.py"):
+        text = path.read_text()
+        if "build_store(" not in text:
+            offenders.append(path.name)
+        if "= BlobStore(" in text or "return BlobStore(" in text:
+            offenders.append(f"{path.name} constructs BlobStore directly")
+
+    assert not offenders, f"storage_backend is bypassed in: {', '.join(offenders)}"

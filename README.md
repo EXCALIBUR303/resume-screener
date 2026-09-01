@@ -357,7 +357,7 @@ and whether the strongest claim holds, so nobody has to take the README's word f
 
 ## What I learned
 
-Twenty-three [ADRs](docs/adr/) record the decisions. Six where I was wrong, and the measurement that
+Twenty-four [ADRs](docs/adr/) record the decisions. Six where I was wrong, and the measurement that
 showed it:
 
 **I claimed the deterministic score was "mathematically immune to injection." It wasn't.**

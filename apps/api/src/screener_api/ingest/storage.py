@@ -140,6 +140,8 @@ class S3BlobStore:
         kek: bytes,
         kek_version: int,
         endpoint_url: str | None = None,
+        access_key_id: str | None = None,
+        secret_access_key: str | None = None,
         client: Any | None = None,
     ) -> None:
         self.bucket = bucket
@@ -150,7 +152,19 @@ class S3BlobStore:
         else:
             import boto3
 
-            self._s3 = boto3.client("s3", endpoint_url=endpoint_url or None)
+            # Explicit credentials, not boto3's ambient AWS_* env var chain.
+            # This project's own settings are named S3_ACCESS_KEY_ID and
+            # S3_SECRET_ACCESS_KEY (see docs/deployment.md); silently also
+            # accepting AWS_ACCESS_KEY_ID would mean two names work and only
+            # one is documented, which is how a credential ends up unset in
+            # production because it was named the way the docs said.
+            kwargs: dict[str, str] = {}
+            if endpoint_url:
+                kwargs["endpoint_url"] = endpoint_url
+            if access_key_id and secret_access_key:
+                kwargs["aws_access_key_id"] = access_key_id
+                kwargs["aws_secret_access_key"] = secret_access_key
+            self._s3 = boto3.client("s3", **kwargs)
 
     @staticmethod
     def _key(prefix: str, digest: str) -> str:
@@ -206,3 +220,30 @@ class S3BlobStore:
             # be idempotent or a partially-completed purge can never finish.
             with contextlib.suppress(Exception):
                 self._s3.delete_object(Bucket=self.bucket, Key=self._key(prefix, digest))
+
+
+def build_store(settings: Any, *, kek: bytes, kek_version: int) -> ObjectStore:
+    """The one place `storage_backend` is read to choose an implementation.
+
+    Before this existed, `worker.py` and `resumes.py` each constructed
+    `BlobStore` directly, so `STORAGE_BACKEND=s3` changed nothing: cloud mode
+    silently wrote resumes to a container's ephemeral local disk instead of
+    the configured bucket, and `S3BlobStore` — tested, encrypted, content-
+    addressed the same way as the local store — sat beside the pipeline
+    unreachable by any real request. Found while writing the cloud deployment
+    walkthrough, not by a report; nothing had ever exercised `storage_backend
+    == "s3"` end to end.
+
+    Typed as `Any` for `settings` rather than importing `Settings` here: that
+    module has no reason to import this one back, and this keeps it that way.
+    """
+    if settings.storage_backend == "s3":
+        return S3BlobStore(
+            settings.s3_bucket,
+            kek=kek,
+            kek_version=kek_version,
+            endpoint_url=settings.s3_endpoint_url or None,
+            access_key_id=settings.s3_access_key_id.get_secret_value() or None,
+            secret_access_key=settings.s3_secret_access_key.get_secret_value() or None,
+        )
+    return BlobStore(settings.storage_local_path, kek=kek, kek_version=kek_version)

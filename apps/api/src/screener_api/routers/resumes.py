@@ -22,7 +22,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from screener_api.db import get_session
-from screener_api.ingest.storage import BlobStore
+from screener_api.ingest.storage import ObjectStore, build_store
 from screener_api.ingest.validation import Limits, UploadRejectedError, validate
 from screener_api.models import Candidate, Resume, StoredFile
 from screener_api.parse.pipeline import PIPELINE_VERSION
@@ -55,9 +55,9 @@ class UploadAccepted(BaseModel):
     duplicate: bool
 
 
-def get_store(settings: Annotated[Settings, Depends(get_settings)]) -> BlobStore:
-    return BlobStore(
-        settings.storage_local_path,
+def get_store(settings: Annotated[Settings, Depends(get_settings)]) -> ObjectStore:
+    return build_store(
+        settings,
         kek=derive_kek(settings.app_kek.get_secret_value(), settings.app_kek_version),
         kek_version=settings.app_kek_version,
     )
@@ -78,7 +78,7 @@ async def upload_resume(
     request: Request,
     session: Annotated[AsyncSession, Depends(get_session)],
     settings: Annotated[Settings, Depends(get_settings)],
-    store: Annotated[BlobStore, Depends(get_store)],
+    store: Annotated[ObjectStore, Depends(get_store)],
     actor: Annotated[Actor, requires(Permission.RESUME_WRITE)],
     file: Annotated[UploadFile, File()],
     external_ref: Annotated[str | None, Form()] = None,
@@ -247,7 +247,7 @@ async def download_resume(
     resume_id: uuid.UUID,
     request: Request,
     session: Annotated[AsyncSession, Depends(get_session)],
-    store: Annotated[BlobStore, Depends(get_store)],
+    store: Annotated[ObjectStore, Depends(get_store)],
     actor: Annotated[Actor, requires(Permission.RESUME_READ)],
 ) -> Response:
     """Serve the original bytes as a download only.

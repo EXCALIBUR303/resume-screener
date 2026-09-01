@@ -67,6 +67,10 @@ class Settings(BaseSettings):
 
     storage_backend: Literal["local", "s3"] = "local"
     storage_local_path: Path = Path("/data/files")
+    s3_bucket: str = ""
+    s3_endpoint_url: str = ""
+    s3_access_key_id: SecretStr = SecretStr("")
+    s3_secret_access_key: SecretStr = SecretStr("")
 
     upload_max_bytes: int = 10 * 1024 * 1024
     upload_max_pages: int = 30
