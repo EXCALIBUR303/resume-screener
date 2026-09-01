@@ -46,10 +46,22 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      # OCI image references must be all-lowercase. github.repository preserves
+      # the actual GitHub username's case (EXCALIBUR303), and every step below
+      # that names the image was reconstructing the reference from it directly
+      # — cosign then refused it: "could not parse reference". metadata-action
+      # lowercases automatically for the build tag, which is why the build
+      # step worked while sign/attest/verify did not: they were the only ones
+      # not going through it. Computed once here instead of wrong in four
+      # places.
+      - id: image
+        run: |
+          echo "ref=$(echo '${{ env.REGISTRY }}/${{ github.repository }}/${{ matrix.image }}' | tr '[:upper:]' '[:lower:]')" >> "$GITHUB_OUTPUT"
+
       - id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ${{ env.REGISTRY }}/${{ github.repository }}/${{ matrix.image }}
+          images: ${{ steps.image.outputs.ref }}
 
       - id: build
         uses: docker/build-push-action@v6
@@ -70,13 +82,13 @@ jobs:
       - name: Sign the image digest
         run: |
           cosign sign --yes \
-            "${{ env.REGISTRY }}/${{ github.repository }}/${{ matrix.image }}@${{ steps.build.outputs.digest }}"
+            "${{ steps.image.outputs.ref }}@${{ steps.build.outputs.digest }}"
 
       - name: Generate SBOM
         uses: aquasecurity/trivy-action@v0.36.0
         with:
           scan-type: image
-          image-ref: ${{ env.REGISTRY }}/${{ github.repository }}/${{ matrix.image }}@${{ steps.build.outputs.digest }}
+          image-ref: ${{ steps.image.outputs.ref }}@${{ steps.build.outputs.digest }}
           format: cyclonedx
           output: sbom.cdx.json
 
@@ -86,14 +98,14 @@ jobs:
       - name: Attest the SBOM
         run: |
           cosign attest --yes --type cyclonedx --predicate sbom.cdx.json \
-            "${{ env.REGISTRY }}/${{ github.repository }}/${{ matrix.image }}@${{ steps.build.outputs.digest }}"
+            "${{ steps.image.outputs.ref }}@${{ steps.build.outputs.digest }}"
 
       - name: Verify what was just published
         run: |
           cosign verify \
             --certificate-identity-regexp "^https://github.com/${{ github.repository }}/" \
             --certificate-oidc-issuer https://token.actions.githubusercontent.com \
-            "${{ env.REGISTRY }}/${{ github.repository }}/${{ matrix.image }}@${{ steps.build.outputs.digest }}"
+            "${{ steps.image.outputs.ref }}@${{ steps.build.outputs.digest }}"
 
       - uses: actions/upload-artifact@v4
         with:
