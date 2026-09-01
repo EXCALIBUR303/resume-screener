@@ -18,6 +18,7 @@ an encrypted map held in the API process, so the model reasons about
 
 from __future__ import annotations
 
+import bisect
 import re
 from dataclasses import dataclass, field
 from functools import lru_cache
@@ -26,13 +27,21 @@ from typing import Any
 import structlog
 
 from screener_api.privacy.recognizers import (
+    AMBIGUOUS_PROTECTED_PATTERNS,
+    DELETE_NOT_TOKENISE,
     EDUCATION_CONTEXT,
     EDUCATION_WINDOW,
     NEVER_REDACT,
     PATTERNS,
     PHONE_MIN_DIGITS,
+    POSTAL_CONTEXT,
+    POSTAL_US,
+    POSTAL_WINDOW,
+    PROTECTED_CONTEXT,
     PROTECTED_PATTERNS,
+    PROTECTED_WINDOW,
     YEAR,
+    is_degree_phrase,
 )
 
 log = structlog.get_logger()
@@ -87,14 +96,51 @@ def _analyzer() -> Any:
     return AnalyzerEngine(nlp_engine=provider.create_engine(), supported_languages=["en"])
 
 
+def _matched_span(m: re.Match[str]) -> tuple[int, int]:
+    """The characters a pattern wants removed.
+
+    Usually the whole match, but a pattern may mark a narrower `redact` group
+    when it needs surrounding context to identify the target without also
+    destroying it — "Career break 2022-2023 (parental leave)" has to see the
+    phrase and the dates to know what the parenthetical is, and has to leave
+    them behind because the experience arithmetic reads them.
+    """
+    if "redact" in (m.re.groupindex or {}) and m.group("redact") is not None:
+        return m.span("redact")
+    return m.span()
+
+
+def _preceded_by(text: str, start: int, cue: re.Pattern[str], window: int) -> bool:
+    """True when `cue` appears in the `window` characters just before `start`.
+
+    Cues that anchor with `$` therefore mean "immediately before the match",
+    which is how a US state abbreviation identifies the digits after it as a ZIP.
+    """
+    return bool(cue.search(text[max(0, start - window) : start]))
+
+
+def _near(text: str, start: int, end: int, cue: re.Pattern[str], window: int) -> bool:
+    """True when `cue` appears within `window` characters on either side."""
+    return bool(cue.search(text[max(0, start - window) : min(len(text), end + window)]))
+
+
 def _pattern_spans(text: str) -> list[Span]:
     spans: list[Span] = []
     for entity, regex in PATTERNS:
         for m in regex.finditer(text):
-            value = m.group(0)
+            start, end = _matched_span(m)
+            value = text[start:end]
             if entity == "PHONE" and not _is_phone_like(value):
                 continue
-            spans.append(Span(m.start(), m.end(), entity, value, "pattern"))
+            spans.append(Span(start, end, entity, value, "pattern"))
+
+    # A five-digit number is only a postal code when an address says so. Bare,
+    # this pattern redacted "50000 concurrent connections" and "12000 ms" —
+    # quantified impact is the most valuable thing on a resume, and destroying
+    # it is the same class of failure as ADR-0009, not a safe over-redaction.
+    for m in POSTAL_US.regex.finditer(text):
+        if _preceded_by(text, m.start(), POSTAL_CONTEXT, POSTAL_WINDOW):
+            spans.append(Span(m.start(), m.end(), POSTAL_US.entity, m.group(0), "pattern"))
     return spans
 
 
@@ -110,20 +156,54 @@ def _is_phone_like(value: str) -> bool:
     return digits >= PHONE_MIN_DIGITS
 
 
+# Where the value after a "Label: value" field stops. Ends at a line break, an
+# explicit separator, or the next label — so "Nationality: Indian | Languages:
+# English" gives up the nationality without taking the languages with it.
+_FIELD_VALUE_END = re.compile(r"\n|[|;]|(?=\b[\w ]{1,20}:)")
+
+
+def _extend_over_field_value(text: str, span: Span) -> Span:
+    """Cover the value of a `Label: value` field, not just the label.
+
+    Several protected terms ARE the label — "Nationality", "Citizenship",
+    "Visa status". Matching them alone produced `NATIONALITY_1: Indian`: the
+    word naming the attribute was removed and the attribute itself was left in
+    the text handed to the model. The same inversion as the degree/institution
+    one, and just as backwards (ADR-0017).
+    """
+    rest = text[span.end :]
+    separator = re.match(r"\s*[:\-]\s*", rest)
+    if separator is None:
+        return span
+    value_start = span.end + separator.end()
+    stop = _FIELD_VALUE_END.search(text, value_start)
+    value_end = stop.start() if stop else len(text)
+    if value_end <= value_start:
+        return span
+    return Span(span.start, value_end, span.entity, text[span.start : value_end], span.source)
+
+
 def _protected_spans(text: str, *, redact_grad_years: bool) -> list[Span]:
     spans: list[Span] = []
     for entity, regex in PROTECTED_PATTERNS:
         for m in regex.finditer(text):
-            spans.append(Span(m.start(), m.end(), entity, m.group(0), "protected"))
+            start, end = _matched_span(m)
+            span = Span(start, end, entity, text[start:end], "protected")
+            spans.append(_extend_over_field_value(text, span))
+    # Terms that are a protected attribute on a form and ordinary engineering
+    # vocabulary in prose. Only redacted when a demographic cue sits nearby, so
+    # "Marital status: single" goes and "single point of failure" stays.
+    for entity, regex in AMBIGUOUS_PROTECTED_PATTERNS:
+        for m in regex.finditer(text):
+            if _near(text, m.start(), m.end(), PROTECTED_CONTEXT, PROTECTED_WINDOW):
+                spans.append(Span(m.start(), m.end(), entity, m.group(0), "protected"))
+
     if redact_grad_years:
         for m in YEAR.regex.finditer(text):
             # A year counts as a graduation year when an education keyword sits
             # within a window on EITHER side: "B.Tech, Example Institute, 2019"
             # is at least as common as "2019 B.Tech".
-            lo = max(0, m.start() - EDUCATION_WINDOW)
-            hi = min(len(text), m.end() + EDUCATION_WINDOW)
-            window = text[lo:hi]
-            if EDUCATION_CONTEXT.search(window):
+            if _near(text, m.start(), m.end(), EDUCATION_CONTEXT, EDUCATION_WINDOW):
                 spans.append(Span(m.start(), m.end(), YEAR.entity, m.group(0), "protected"))
     return spans
 
@@ -152,6 +232,13 @@ def _ner_spans(text: str) -> list[Span]:
             # token-by-token: "Redis, Docker" arrives as ONE organisation span,
             # and a whole-string lookup destroyed two skills at once.
             if _is_all_known_technology(piece.text):
+                continue
+            # Neither is a degree. NER returns "B.Tech Computer Science" as an
+            # ORGANIZATION, so the qualification was redacted while the
+            # institution sitting beside it on the same line survived — exactly
+            # backwards, since the degree is the signal and the institution is
+            # the proxy for background (ADR-0017).
+            if is_degree_phrase(piece.text):
                 continue
             spans.append(piece)
     return spans
@@ -200,7 +287,11 @@ def _looks_like_a_name(line: str) -> bool:
         return False
     if "@" in line or "|" in line or ":" in line:
         return False
-    alpha = [w for w in words if w.replace("-", "").replace("'", "").isalpha()]
+    # Trailing periods are allowed so an honorific or an initial does not
+    # disqualify the whole line. "Ms. Alex Placeholder" failed this check and
+    # was therefore never redacted by the structural layer — the layer that
+    # exists precisely to catch the names NER misses.
+    alpha = [w for w in words if w.replace("-", "").replace("'", "").rstrip(".").isalpha()]
     if len(alpha) != len(words):
         return False
     capitalised = sum(1 for w in words if w[:1].isupper())
@@ -330,16 +421,45 @@ def _propagate_known_values(text: str, spans: list[Span]) -> list[Span]:
     return propagated
 
 
+LAYER_PRIORITY = {"pattern": 0, "structural": 1, "protected": 2, "ner": 3, "propagated": 4}
+
+
 def _merge(spans: list[Span]) -> list[Span]:
-    """Resolve overlaps: longest span wins, ties broken by layer priority."""
-    priority = {"pattern": 0, "structural": 1, "protected": 2, "ner": 3, "propagated": 4}
-    ordered = sorted(spans, key=lambda s: (s.start, -(s.end - s.start), priority.get(s.source, 9)))
-    merged: list[Span] = []
+    """Resolve overlaps: the most reliable layer wins, then the longest span.
+
+    The previous version claimed "longest span wins" and did not do it. It
+    sorted by start position and dropped anything overlapping the span before
+    it, so a *shorter, earlier-starting* span suppressed a *longer, later* one.
+    Concretely: NER returned a five-character PERSON span `"| +91"` at offset 34
+    and the phone pattern matched `"+91 90000 00000"` at offset 36. The
+    fragment won, the phone match was discarded, and the digits were then
+    re-matched by weaker patterns and emitted as `PERSON_2 POSTAL_US_1
+    POSTAL_US_2`.
+
+    Whether NER produced that fragment depended on the candidate's *name*, so
+    two identical resumes redacted to different text depending on who they
+    belonged to. That is the bug ADR-0017 is about; ordering by layer first is
+    the fix, and it also matches the four-layer design's own premise that the
+    deterministic patterns carry the recall and NER only fills gaps.
+    """
+    ordered = sorted(
+        spans, key=lambda s: (LAYER_PRIORITY.get(s.source, 9), -(s.end - s.start), s.start)
+    )
+    # Kept spans are held sorted by start so the overlap check is a binary
+    # search against two neighbours rather than a scan. The input is attacker
+    # controlled — a crafted upload can produce thousands of spans — and a
+    # quadratic check here would be a cheap way to stall the parse worker.
+    starts: list[int] = []
+    accepted: list[Span] = []
     for span in ordered:
-        if merged and span.start < merged[-1].end:
-            continue  # fully or partially covered by a longer earlier span
-        merged.append(span)
-    return merged
+        i = bisect.bisect_left(starts, span.start)
+        before_overlaps = i > 0 and accepted[i - 1].end > span.start
+        after_overlaps = i < len(accepted) and accepted[i].start < span.end
+        if before_overlaps or after_overlaps:
+            continue  # a more reliable layer already claimed these characters
+        starts.insert(i, span.start)
+        accepted.insert(i, span)
+    return accepted
 
 
 def redact(
@@ -391,11 +511,59 @@ def redact(
         counts[span.entity] = counts.get(span.entity, 0) + 1
 
         out.append(text[cursor : span.start])
-        out.append(token)
+        # Protected attributes leave nothing behind, not even a token. See
+        # DELETE_NOT_TOKENISE for why. The sentinel is removed below along with
+        # whatever punctuation was holding it in the line.
+        out.append(_DELETED if span.entity in DELETE_NOT_TOKENISE else token)
         cursor = span.end
     out.append(text[cursor:])
 
-    return RedactionResult(text="".join(out), token_map=token_map, counts=counts)
+    return RedactionResult(text=_clean_deletions("".join(out)), token_map=token_map, counts=counts)
+
+
+# Marks where a protected attribute was, so the punctuation around it can be
+# cleaned up before it is dropped. \x00 cannot appear in extracted text.
+_DELETED = "\x00"
+
+# A deletion takes its list separator with it. Without this, removing the
+# pronoun line from "EMAIL_1 | PHONE_1 | (she/her)" left "EMAIL_1 | PHONE_1 |",
+# and a trailing pipe is still a disclosure — it says a field was there.
+_SEPARATOR_BEFORE = re.compile(r"[ \t]*[|,;·][ \t]*" + _DELETED)
+_SEPARATOR_AFTER = re.compile(_DELETED + r"[ \t]*[|,;·][ \t]*")
+_ENCLOSING_PARENS = re.compile(r"\([ \t]*" + _DELETED + r"[ \t]*\)")
+
+
+def _clean_deletions(text: str) -> str:
+    """Remove deletion sentinels along with the punctuation that framed them.
+
+    A line left holding only whitespace is dropped entirely. Half of the
+    residual signal this function exists to remove was structural rather than
+    lexical: not what the line said, but that there was a line.
+    """
+    if _DELETED not in text:
+        return text
+
+    text = _ENCLOSING_PARENS.sub(_DELETED, text)
+    text = _SEPARATOR_BEFORE.sub(_DELETED, text)
+    text = _SEPARATOR_AFTER.sub(_DELETED, text)
+
+    kept: list[str] = []
+    for line in text.split("\n"):
+        if _DELETED not in line:
+            kept.append(line)
+            continue
+        if not line.replace(_DELETED, "").strip():
+            continue  # the line existed only to carry the attribute
+        # Tidy the hole left behind. A doubled space or a space before a full
+        # stop is not a privacy problem, but it is a difference between two
+        # resumes that are supposed to be indistinguishable.
+        stripped = _ORPHANED_SPACE.sub(" ", line.replace(_DELETED, ""))
+        kept.append(_SPACE_BEFORE_PUNCTUATION.sub(r"\1", stripped).rstrip())
+    return "\n".join(kept)
+
+
+_ORPHANED_SPACE = re.compile(r"[ \t]{2,}")
+_SPACE_BEFORE_PUNCTUATION = re.compile(r"[ \t]+([.,;:)])")
 
 
 def rehydrate(text: str, token_map: dict[str, str]) -> str:

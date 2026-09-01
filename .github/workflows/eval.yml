@@ -7,6 +7,7 @@ on:
       - "apps/api/src/screener_api/scoring/**"
       - "prompts/**"
       - "evals/**"
+      - "apps/api/src/screener_api/privacy/**"
   workflow_dispatch:
 
 permissions:
@@ -60,3 +61,49 @@ jobs:
         with:
           name: eval-report
           path: evals/reports/latest.json
+
+  fairness:
+    name: counterfactual fairness probe
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: screener
+          POSTGRES_PASSWORD: eval-only-password
+          POSTGRES_DB: screener
+        ports: ["5433:5432"]
+        options: >-
+          --health-cmd pg_isready --health-interval 5s
+          --health-timeout 3s --health-retries 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+          cache-dependency-glob: "apps/api/requirements.lock"
+      - working-directory: apps/api
+        run: uv venv --python 3.12 && uv pip install -e ".[dev]"
+      # The probe redacts through all four layers, and NER is one of them.
+      - working-directory: apps/api
+        run: .venv/bin/python -m spacy download en_core_web_sm
+      - name: Migrate
+        working-directory: apps/api
+        env:
+          POSTGRES_HOST: localhost
+          POSTGRES_PORT: "5433"
+          POSTGRES_PASSWORD: eval-only-password
+        run: .venv/bin/alembic upgrade head
+      - name: "Probe: does a protected signal move the score?"
+        env:
+          POSTGRES_HOST: localhost
+          POSTGRES_PORT: "5433"
+          POSTGRES_PASSWORD: eval-only-password
+          # The image default is a container path this runner cannot create.
+          FASTEMBED_CACHE_PATH: ${{ runner.temp }}/fastembed
+        run: apps/api/.venv/bin/python evals/fairness/run.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: fairness-report
+          path: evals/reports/fairness.json

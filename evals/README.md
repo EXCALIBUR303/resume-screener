@@ -39,8 +39,50 @@ caveat attached. Nothing in this directory supports a claim about real hiring.
 golden/     corpus.json      generated resumes + job descriptions + derived labels
             labels.jsonl     flattened (job_id, resume_id, grade) triples
 suites/     injection.py     the AC-9 adversarial corpus
+fairness/   variants.py      counterfactual resume sets, one protected signal per axis
+            air.py           adverse impact ratio, and what it does not mean here
+            run.py           the probe: real pipeline, real retrieval, stub model
 baselines/  v1.json          committed metrics; CI compares against this
-reports/    <sha>.md         per-run output
+reports/    latest.json      retrieval metrics from the last run
+            fairness.json    counterfactual probe from the last run
 ```
 
 Regenerate with `make eval-data`, run with `make eval`.
+
+## The counterfactual fairness probe
+
+`make fairness` renders the same resume many times, changing exactly one signal correlated with a
+protected attribute, and runs every rendering through the real `handle_score_job`.
+
+Two questions, and they are not the same:
+
+**Does redaction erase the signal?** For a *removable* axis — a name, a pronoun marker, a
+personal-details block — every variant must reduce to **byte-identical redacted text**. That is
+the strong claim and the one worth making, because everything downstream of redaction is a pure
+function of that text and the job posting. Identical text is an identical score by construction,
+with no measurement required. This is what `apps/api/tests/test_fairness.py` asserts, offline and
+without a database.
+
+**Does the score move anyway?** For axes that legitimately change the document — a career break, a
+volunteering line — the scores are compared directly.
+
+### It needs a control, and I found that out the hard way
+
+The `control` axis is six renderings of the *same document*. Their spread is the noise floor, and
+no axis effect at or below it means anything.
+
+The first version had no control and reported six of seven axes as "differing" on nothing but
+prompt variation. Three independent sources of per-run randomness reach the prompt: the nonce that
+keys the untrusted-document fence, the resume id inside that fence, and the chunk ids, which are
+fresh `uuid4` on every index. All three are correct in production and fatal in a harness. With
+them controlled the noise floor is 0.000 and the numbers are readable.
+
+This is the lesson of ADR-0015, learned again in the next harness I wrote.
+
+### What it is not
+
+Synthetic documents. Three base resumes per axis. The stub model. **It is not an applicant-flow
+study, not a validated adverse-impact analysis, and passing it is not evidence the system is
+fair.** The adverse impact ratio is computed because it is the number a reader looks for, and
+reported with its limitations attached rather than omitted — see the module docstring in
+`fairness/air.py`, which explains why it carries no information wherever invariance holds.

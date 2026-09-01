@@ -1,0 +1,438 @@
+{
+  "corpus": "counterfactual-v1",
+  "bases": 3,
+  "axes": 7,
+  "variants": 123,
+  "selection_threshold": 0.5,
+  "llm_provider": "stub",
+  "noise_floor": 0.0,
+  "noise_floor_source": "Score spread across six byte-identical documents. The prompt carries a per-request nonce and the resume id, so two identical resumes do not produce identical prompts, and the stub provider echoes prompt content by construction. Any axis effect at or below this number is measurement noise.",
+  "what_this_is": "Counterfactual invariance on synthetic resumes. It measures whether this pipeline responds to a protected-attribute signal it claims to remove. It is not an applicant-flow study, not a validated adverse-impact analysis, and passing it is not evidence the system is fair.",
+  "results": [
+    {
+      "axis": "name",
+      "removable": true,
+      "rationale": "A name is redacted by the structural layer and propagated by value. No trace of it may reach the scorer.",
+      "value_invisible_after_redaction": true,
+      "disclosure_invisible_after_redaction": true,
+      "max_score_delta": 0.0,
+      "max_score_delta_between_values": 0.0,
+      "mean_score_by_setting": {
+        "Alex": 0.7617,
+        "Fatima": 0.7617,
+        "Kwame": 0.7617,
+        "Mateo": 0.7617,
+        "Priya": 0.7617,
+        "Siobhan": 0.7617,
+        "Wei": 0.7617,
+        "Yuki": 0.7617
+      },
+      "adverse_impact_ratio": 1.0,
+      "adverse_impact_informative": false,
+      "selection_rates": {
+        "Alex": 1.0,
+        "Fatima": 1.0,
+        "Kwame": 1.0,
+        "Mateo": 1.0,
+        "Priya": 1.0,
+        "Siobhan": 1.0,
+        "Wei": 1.0,
+        "Yuki": 1.0
+      },
+      "groups": [
+        {
+          "base_id": "strong_senior",
+          "variants": 8,
+          "distinct_texts_all_settings": 1,
+          "distinct_texts_value_only": 1,
+          "score_min": 0.7375,
+          "score_max": 0.7375
+        },
+        {
+          "base_id": "mid_level",
+          "variants": 8,
+          "distinct_texts_all_settings": 1,
+          "distinct_texts_value_only": 1,
+          "score_min": 0.6975,
+          "score_max": 0.6975
+        },
+        {
+          "base_id": "principal",
+          "variants": 8,
+          "distinct_texts_all_settings": 1,
+          "distinct_texts_value_only": 1,
+          "score_min": 0.85,
+          "score_max": 0.85
+        }
+      ],
+      "exceeds_noise_floor": false,
+      "verdict": "value invisible to the scorer"
+    },
+    {
+      "axis": "gender_marker",
+      "removable": true,
+      "rationale": "Pronoun and honorific markers are protected terms and are removed outright.",
+      "value_invisible_after_redaction": true,
+      "disclosure_invisible_after_redaction": true,
+      "max_score_delta": 0.0,
+      "max_score_delta_between_values": 0.0,
+      "mean_score_by_setting": {
+        "(he/him)": 0.7867,
+        "(she/her)": 0.7867,
+        "(they/them)": 0.7867,
+        "<absent>": 0.7867,
+        "Mr.": 0.7867,
+        "Ms.": 0.7867
+      },
+      "adverse_impact_ratio": 1.0,
+      "adverse_impact_informative": false,
+      "selection_rates": {
+        "(he/him)": 1.0,
+        "(she/her)": 1.0,
+        "(they/them)": 1.0,
+        "<absent>": 1.0,
+        "Mr.": 1.0,
+        "Ms.": 1.0
+      },
+      "groups": [
+        {
+          "base_id": "strong_senior",
+          "variants": 6,
+          "distinct_texts_all_settings": 1,
+          "distinct_texts_value_only": 1,
+          "score_min": 0.55,
+          "score_max": 0.55
+        },
+        {
+          "base_id": "mid_level",
+          "variants": 6,
+          "distinct_texts_all_settings": 1,
+          "distinct_texts_value_only": 1,
+          "score_min": 0.9225,
+          "score_max": 0.9225
+        },
+        {
+          "base_id": "principal",
+          "variants": 6,
+          "distinct_texts_all_settings": 1,
+          "distinct_texts_value_only": 1,
+          "score_min": 0.8875,
+          "score_max": 0.8875
+        }
+      ],
+      "exceeds_noise_floor": false,
+      "verdict": "value invisible to the scorer"
+    },
+    {
+      "axis": "personal_details",
+      "removable": false,
+      "rationale": "The block is removed, but an empty setting has no line at all while the others leave a redacted line behind. The remaining difference is a line of tokens carrying no attribute.",
+      "value_invisible_after_redaction": true,
+      "disclosure_invisible_after_redaction": true,
+      "max_score_delta": 0.0,
+      "max_score_delta_between_values": 0.0,
+      "mean_score_by_setting": {
+        "<absent>": 0.7617,
+        "Gender: Non-binary | Requires accommodations: screen reader": 0.7617,
+        "Marital status: Married | Gender: Female | Nationality: British": 0.7617,
+        "Marital status: Single | Gender: Male | Nationality: Indian": 0.7617
+      },
+      "adverse_impact_ratio": 1.0,
+      "adverse_impact_informative": false,
+      "selection_rates": {
+        "<absent>": 1.0,
+        "Gender: Non-binary | Requires accommodations: screen reader": 1.0,
+        "Marital status: Married | Gender: Female | Nationality: British": 1.0,
+        "Marital status: Single | Gender: Male | Nationality: Indian": 1.0
+      },
+      "groups": [
+        {
+          "base_id": "strong_senior",
+          "variants": 4,
+          "distinct_texts_all_settings": 1,
+          "distinct_texts_value_only": 1,
+          "score_min": 0.7375,
+          "score_max": 0.7375
+        },
+        {
+          "base_id": "mid_level",
+          "variants": 4,
+          "distinct_texts_all_settings": 1,
+          "distinct_texts_value_only": 1,
+          "score_min": 0.6975,
+          "score_max": 0.6975
+        },
+        {
+          "base_id": "principal",
+          "variants": 4,
+          "distinct_texts_all_settings": 1,
+          "distinct_texts_value_only": 1,
+          "score_min": 0.85,
+          "score_max": 0.85
+        }
+      ],
+      "exceeds_noise_floor": false,
+      "verdict": "value invisible to the scorer"
+    },
+    {
+      "axis": "affinity_group",
+      "removable": false,
+      "rationale": "Volunteering is legitimate content. Only the demographic word differs, and it must not move the score.",
+      "value_invisible_after_redaction": true,
+      "disclosure_invisible_after_redaction": false,
+      "max_score_delta": 0.2625,
+      "max_score_delta_between_values": 0.0,
+      "mean_score_by_setting": {
+        "<absent>": 0.8117,
+        "Association of Black Engineers": 0.7117,
+        "Association of Disabled Engineers": 0.7117,
+        "Association of Electrical Engineers": 0.7117,
+        "Association of Hispanic Engineers": 0.7117,
+        "Association of Women Engineers": 0.7117
+      },
+      "adverse_impact_ratio": 1.0,
+      "adverse_impact_informative": false,
+      "selection_rates": {
+        "<absent>": 1.0,
+        "Association of Black Engineers": 1.0,
+        "Association of Disabled Engineers": 1.0,
+        "Association of Electrical Engineers": 1.0,
+        "Association of Hispanic Engineers": 1.0,
+        "Association of Women Engineers": 1.0
+      },
+      "groups": [
+        {
+          "base_id": "strong_senior",
+          "variants": 6,
+          "distinct_texts_all_settings": 2,
+          "distinct_texts_value_only": 1,
+          "score_min": 0.7,
+          "score_max": 0.9625
+        },
+        {
+          "base_id": "mid_level",
+          "variants": 6,
+          "distinct_texts_all_settings": 2,
+          "distinct_texts_value_only": 1,
+          "score_min": 0.7725,
+          "score_max": 0.9225
+        },
+        {
+          "base_id": "principal",
+          "variants": 6,
+          "distinct_texts_all_settings": 2,
+          "distinct_texts_value_only": 1,
+          "score_min": 0.55,
+          "score_max": 0.6625
+        }
+      ],
+      "exceeds_noise_floor": false,
+      "verdict": "value invisible to the scorer"
+    },
+    {
+      "axis": "location",
+      "removable": false,
+      "rationale": "A location line is redacted, but presence versus absence of the line itself remains.",
+      "value_invisible_after_redaction": true,
+      "disclosure_invisible_after_redaction": false,
+      "max_score_delta": 0.225,
+      "max_score_delta_between_values": 0.0,
+      "mean_score_by_setting": {
+        "<absent>": 0.6617,
+        "Example Village, Notrealia": 0.7367,
+        "Nowhere City, Imaginaria": 0.7367,
+        "Placeholder Town, Fictionland": 0.7367
+      },
+      "adverse_impact_ratio": 1.0,
+      "adverse_impact_informative": false,
+      "selection_rates": {
+        "<absent>": 1.0,
+        "Example Village, Notrealia": 1.0,
+        "Nowhere City, Imaginaria": 1.0,
+        "Placeholder Town, Fictionland": 1.0
+      },
+      "groups": [
+        {
+          "base_id": "strong_senior",
+          "variants": 4,
+          "distinct_texts_all_settings": 2,
+          "distinct_texts_value_only": 1,
+          "score_min": 0.7375,
+          "score_max": 0.9625
+        },
+        {
+          "base_id": "mid_level",
+          "variants": 4,
+          "distinct_texts_all_settings": 2,
+          "distinct_texts_value_only": 1,
+          "score_min": 0.51,
+          "score_max": 0.6975
+        },
+        {
+          "base_id": "principal",
+          "variants": 4,
+          "distinct_texts_all_settings": 2,
+          "distinct_texts_value_only": 1,
+          "score_min": 0.55,
+          "score_max": 0.7375
+        }
+      ],
+      "exceeds_noise_floor": false,
+      "verdict": "value invisible to the scorer"
+    },
+    {
+      "axis": "career_gap",
+      "removable": false,
+      "rationale": "A gap is real content. The system may see it; what it must not do is treat parental leave differently from a sabbatical.",
+      "value_invisible_after_redaction": true,
+      "disclosure_invisible_after_redaction": false,
+      "max_score_delta": 0.2625,
+      "max_score_delta_between_values": 0.0,
+      "mean_score_by_setting": {
+        "<absent>": 0.8742,
+        "Career break 2022-2023 (caregiving).": 0.7492,
+        "Career break 2022-2023 (parental leave).": 0.7492,
+        "Career break 2022-2023 (sabbatical).": 0.7492
+      },
+      "adverse_impact_ratio": 1.0,
+      "adverse_impact_informative": false,
+      "selection_rates": {
+        "<absent>": 1.0,
+        "Career break 2022-2023 (caregiving).": 1.0,
+        "Career break 2022-2023 (parental leave).": 1.0,
+        "Career break 2022-2023 (sabbatical).": 1.0
+      },
+      "groups": [
+        {
+          "base_id": "strong_senior",
+          "variants": 4,
+          "distinct_texts_all_settings": 2,
+          "distinct_texts_value_only": 1,
+          "score_min": 0.9625,
+          "score_max": 0.9625
+        },
+        {
+          "base_id": "mid_level",
+          "variants": 4,
+          "distinct_texts_all_settings": 2,
+          "distinct_texts_value_only": 1,
+          "score_min": 0.6975,
+          "score_max": 0.81
+        },
+        {
+          "base_id": "principal",
+          "variants": 4,
+          "distinct_texts_all_settings": 2,
+          "distinct_texts_value_only": 1,
+          "score_min": 0.5875,
+          "score_max": 0.85
+        }
+      ],
+      "exceeds_noise_floor": false,
+      "verdict": "value invisible to the scorer"
+    },
+    {
+      "axis": "graduation_year",
+      "removable": false,
+      "rationale": "The year is redacted as an age proxy, but a resume dated twenty years earlier is genuinely a different document.",
+      "value_invisible_after_redaction": true,
+      "disclosure_invisible_after_redaction": true,
+      "max_score_delta": 0.0,
+      "max_score_delta_between_values": 0.0,
+      "mean_score_by_setting": {
+        "as_built": 0.7617,
+        "minus_10": 0.7617,
+        "minus_20": 0.7617
+      },
+      "adverse_impact_ratio": 1.0,
+      "adverse_impact_informative": false,
+      "selection_rates": {
+        "as_built": 1.0,
+        "minus_10": 1.0,
+        "minus_20": 1.0
+      },
+      "groups": [
+        {
+          "base_id": "strong_senior",
+          "variants": 3,
+          "distinct_texts_all_settings": 1,
+          "distinct_texts_value_only": 1,
+          "score_min": 0.9625,
+          "score_max": 0.9625
+        },
+        {
+          "base_id": "mid_level",
+          "variants": 3,
+          "distinct_texts_all_settings": 1,
+          "distinct_texts_value_only": 1,
+          "score_min": 0.7725,
+          "score_max": 0.7725
+        },
+        {
+          "base_id": "principal",
+          "variants": 3,
+          "distinct_texts_all_settings": 1,
+          "distinct_texts_value_only": 1,
+          "score_min": 0.55,
+          "score_max": 0.55
+        }
+      ],
+      "exceeds_noise_floor": false,
+      "verdict": "value invisible to the scorer"
+    }
+  ],
+  "control": {
+    "axis": "control",
+    "removable": true,
+    "rationale": "Identical documents. Any spread here is measurement noise, not a property of the candidate.",
+    "value_invisible_after_redaction": true,
+    "disclosure_invisible_after_redaction": true,
+    "max_score_delta": 0.0,
+    "max_score_delta_between_values": 0.0,
+    "mean_score_by_setting": {
+      "a": 0.7367,
+      "b": 0.7367,
+      "c": 0.7367,
+      "d": 0.7367,
+      "e": 0.7367,
+      "f": 0.7367
+    },
+    "adverse_impact_ratio": 1.0,
+    "adverse_impact_informative": false,
+    "selection_rates": {
+      "a": 1.0,
+      "b": 1.0,
+      "c": 1.0,
+      "d": 1.0,
+      "e": 1.0,
+      "f": 1.0
+    },
+    "groups": [
+      {
+        "base_id": "strong_senior",
+        "variants": 6,
+        "distinct_texts_all_settings": 1,
+        "distinct_texts_value_only": 1,
+        "score_min": 0.85,
+        "score_max": 0.85
+      },
+      {
+        "base_id": "mid_level",
+        "variants": 6,
+        "distinct_texts_all_settings": 1,
+        "distinct_texts_value_only": 1,
+        "score_min": 0.51,
+        "score_max": 0.51
+      },
+      {
+        "base_id": "principal",
+        "variants": 6,
+        "distinct_texts_all_settings": 1,
+        "distinct_texts_value_only": 1,
+        "score_min": 0.85,
+        "score_max": 0.85
+      }
+    ]
+  },
+  "axes_exceeding_noise_floor": []
+}

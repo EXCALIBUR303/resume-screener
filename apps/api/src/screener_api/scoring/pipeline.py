@@ -51,7 +51,23 @@ async def handle_score_job(
     *,
     gateway: LLMGateway,
     prompt: PromptTemplate,
+    nonce: str | None = None,
 ) -> None:
+    """Score one resume against one job posting.
+
+    ``nonce`` exists for measurement only. The fence around the untrusted
+    document is keyed by a per-request random value so an injected instruction
+    cannot close it by guessing the delimiter, and that random value goes into
+    the prompt — which means two byte-identical resumes produce two different
+    prompts and, quite legitimately, two different model responses.
+
+    That is correct in production and fatal in a harness. The counterfactual
+    fairness probe measures whether changing a candidate's *name* moves the
+    score; with a fresh nonce per call it measured six identical documents
+    spreading by 0.34, which swamped every effect it was looking for. Callers
+    that need two runs to be comparable pass a fixed value. Nothing in the
+    application does, and the default is unchanged.
+    """
     job_id = uuid.UUID(str(payload["job_id"]))
     resume_id = uuid.UUID(str(payload["resume_id"]))
 
@@ -101,7 +117,7 @@ async def handle_score_job(
         job_description=posting.description,
         competencies="\n".join(f"- {s}" for s in posting.required_skills),
         resume_id=str(resume_id),
-        nonce=secrets.token_hex(8),
+        nonce=nonce or secrets.token_hex(8),
         document="\n\n".join(f"[{cid}] {body}" for cid, body in sources.items()),
     )
     try:

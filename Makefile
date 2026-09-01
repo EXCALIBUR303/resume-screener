@@ -107,6 +107,12 @@ eval-data: ## Regenerate the golden corpus from its fixed seed
 eval: ## Run the evaluation harness against the golden set
 	POSTGRES_HOST=localhost POSTGRES_PORT=5433 $(VENV)/python evals/harness.py
 
+.PHONY: fairness
+fairness: ## Counterfactual fairness probe: does a protected signal move the score?
+	POSTGRES_HOST=localhost POSTGRES_PORT=5433 \
+	  FASTEMBED_CACHE_PATH=$${FASTEMBED_CACHE_PATH:-$$HOME/.cache/fastembed} \
+	  $(VENV)/python evals/fairness/run.py
+
 .PHONY: eval-baseline
 eval-baseline: eval ## Promote the latest run to the committed baseline
 	cp evals/reports/latest.json evals/baselines/v1.json

@@ -159,6 +159,35 @@ result. **On this corpus hybrid retrieval is not measurably better than lexical 
 It is kept for the reason given in [ADR-0015](docs/adr/0015-retrieval-measured.md), not because
 the numbers support it.
 
+### Counterfactual fairness probe
+
+`make fairness` renders 123 variants of the same handful of resumes, changing **one**
+protected-attribute signal at a time, and runs every one through the real scoring pipeline.
+
+| axis | value hidden | disclosure hidden | Δ score between values |
+|---|---|---|---|
+| name | yes | yes | 0.000 |
+| gender marker | yes | yes | 0.000 |
+| personal details | yes | yes | 0.000 |
+| graduation year | yes | yes | 0.000 |
+| affinity group | yes | no | 0.000 |
+| location | yes | no | 0.000 |
+| career break reason | yes | no | 0.000 |
+
+The first run of this probe found nine defects, including one where **the same phone number was
+redacted correctly for one candidate name and shattered into two fake postal codes for another** —
+so two identical resumes were embedded, retrieved and scored differently because of the
+candidate's name. [ADR-0017](docs/adr/0017-redaction-was-not-name-invariant.md) has all nine.
+
+**Read this honestly.** Synthetic documents, three base resumes per axis, stub model. It shows this
+pipeline does not respond to a signal it claims to remove. **It is not an applicant-flow study, not
+a validated adverse-impact analysis, and passing it is not evidence the system is fair.** The
+adverse-impact ratio is reported with the same caveat: where invariance holds it is 1.0 by
+arithmetic necessity and adds nothing.
+
+"Disclosure hidden: no" on the last three is expected — an affinity group, a location and a career
+break are real extra lines. The system can see a line is there. It cannot see which one.
+
 There is no accuracy percentage anywhere in this project.
 
 ---
@@ -209,8 +238,15 @@ and whether the strongest claim holds, so nobody has to take the README's word f
 
 - **Not a compliant AEDT.** The EU AI Act treats employment screening as high-risk and NYC Local
   Law 144 requires independent bias audits. Neither has been done here.
-- **No bias audit.** Protected attributes are removed before the model sees them, which reduces
-  obvious exposure and is *not* the same as being fair.
+- **No bias audit.** There is a counterfactual-invariance probe (`make fairness`) and it found
+  nine real defects, but it runs on synthetic documents with `n` = 3 per axis. An independent
+  audit on real applicant flow is a different thing entirely, and has not been done.
+- **Institution redaction is inconsistent.** NER catches `Stanford University` and misses
+  `Imaginary Institute`, and an institution is a proxy for background. Measured, recorded in
+  ADR-0017, not solved.
+- **A stored score is reproducible only up to its prompt *template*.** The rendered prompt carries
+  a per-request nonce and freshly generated chunk ids, so re-scoring the same resume can return a
+  different number. `matches.prompt_hash` identifies the template, not the render.
 - **Synthetic data only.** Every fixture is generated; a CI check enforces the marker.
 - **Evaluation is constructed**, so it measures whether the system does what it was designed to
   do — not whether the design is right.
@@ -221,7 +257,7 @@ and whether the strongest claim holds, so nobody has to take the README's word f
 
 ## What I learned
 
-Fifteen [ADRs](docs/adr/) record the decisions. Five where I was wrong, and the measurement that
+Seventeen [ADRs](docs/adr/) record the decisions. Six where I was wrong, and the measurement that
 showed it:
 
 **I claimed the deterministic score was "mathematically immune to injection." It wasn't.**
@@ -250,8 +286,23 @@ it in one run. ([ADR-0015](docs/adr/0015-retrieval-measured.md))
 redacts a skill still returns a number, just a worse one, for a reason nobody can see.
 ([ADR-0009](docs/adr/0009-redaction-must-not-eat-the-signal.md))
 
-The pattern across all five: **my test corpora tested the attacks I had already thought of. The
+**A candidate's name changed how their phone number was redacted.** For some names spaCy returned
+a spurious five-character span overlapping the phone match, and my merge step — whose docstring
+said "longest span wins" while the code did nothing of the sort — discarded the fifteen-character
+match in favour of the fragment. The digits went either way, so no PII escaped. What escaped was
+*invariance*: the redacted text is what gets embedded and put in the prompt, so two identical
+resumes were scored differently because of who they belonged to. Eight more defects came out of
+the same probe, including a protected-term list that deleted `man-in-the-middle`, `cache miss` and
+`Single Sign-On` from security resumes, and three gender recognizers that could never fire at all.
+([ADR-0017](docs/adr/0017-redaction-was-not-name-invariant.md))
+
+The pattern across all six: **my test corpora tested the attacks I had already thought of. The
 assembled pipeline tested the ones I hadn't.**
+
+And one that repeated. ADR-0015 recorded that a measurement harness needs its own determinism test
+before its numbers mean anything. I wrote the next harness and made the same mistake — it reported
+six of seven axes as "differing" until I added a control of byte-identical documents and found
+they differed just as much. **Knowing a lesson and applying it are separate skills.**
 
 ---
 
