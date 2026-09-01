@@ -122,6 +122,11 @@ def test_env_example_produces_a_valid_settings_object() -> None:
     A cold start in CI catches this three minutes and a whole stack later. This
     catches it in milliseconds, which is the difference between finding it
     before pushing and finding it after.
+
+    It is not a replacement for that cold start. This exercises
+    *pydantic-settings*' parser; the containers are fed by *Compose*'s, and they
+    are different implementations that merely agreed about this case. CI stays
+    the authority on whether the stack boots.
     """
     import pathlib
 
