@@ -93,7 +93,34 @@ services:
     volumes: ["blobs:/data/files"]
     restart: unless-stopped
 
+  # Opt-in: `docker compose --profile observability up -d`
+  prometheus:
+    image: prom/prometheus:v3.1.0
+    profiles: ["observability"]
+    volumes:
+      - "./infra/prometheus:/etc/prometheus:ro"
+      - "promdata:/prometheus"
+    ports: ["9090:9090"]
+    security_opt: ["no-new-privileges:true"]
+
+  grafana:
+    image: grafana/grafana:11.5.1
+    profiles: ["observability"]
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: "${GRAFANA_PASSWORD:-admin}"
+      GF_AUTH_ANONYMOUS_ENABLED: "false"
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    volumes:
+      - "./infra/grafana/provisioning:/etc/grafana/provisioning:ro"
+      - "./infra/grafana/dashboards:/var/lib/grafana/dashboards:ro"
+      - "grafanadata:/var/lib/grafana"
+    ports: ["3001:3000"]
+    depends_on: [prometheus]
+    security_opt: ["no-new-privileges:true"]
+
 volumes:
   pgdata:
+  promdata:
+  grafanadata:
   blobs:
   pgsocket:

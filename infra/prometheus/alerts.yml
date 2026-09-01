@@ -1,0 +1,53 @@
+groups:
+  - name: screener
+    rules:
+      # The blueprint says alert on DLQ depth > 0. A dead-lettered job is work
+      # that was abandoned: nobody finds it by accident.
+      - alert: DeadLetterQueueNonEmpty
+        expr: screener_dead_letter_depth > 0
+        for: 1m
+        labels: { severity: warning }
+        annotations:
+          summary: "{{ $value }} job(s) dead-lettered"
+          runbook: "docs/runbook.md#dead-letter-queue"
+
+      # Depth flat but age rising means workers are stuck, not busy — a
+      # different problem with a different fix, so it gets its own alert.
+      - alert: QueueNotDraining
+        expr: screener_oldest_pending_job_seconds > 900
+        for: 5m
+        labels: { severity: warning }
+        annotations:
+          summary: "Oldest pending job is {{ $value | humanizeDuration }} old"
+          runbook: "docs/runbook.md#queue-not-draining"
+
+      # The most dangerous silent failure this system has: redaction stopping
+      # while everything else keeps working. Uploads continuing with zero
+      # entities removed means raw PII is reaching the model.
+      - alert: RedactionProducingNothing
+        expr: |
+          increase(screener_uploads_total{outcome="accepted"}[30m]) > 0
+          and increase(screener_redaction_entities_total[30m]) == 0
+        for: 10m
+        labels: { severity: critical }
+        annotations:
+          summary: "Uploads are being accepted but no PII is being redacted"
+          runbook: "docs/runbook.md#redaction-stopped"
+
+      - alert: ModelFailing
+        expr: |
+          rate(screener_llm_requests_total{outcome!="ok"}[10m])
+          / clamp_min(rate(screener_llm_requests_total[10m]), 0.001) > 0.25
+        for: 10m
+        labels: { severity: warning }
+        annotations:
+          summary: "Over a quarter of model calls are failing"
+          runbook: "docs/runbook.md#model-unavailable"
+
+      - alert: EvidenceFabricationRising
+        expr: rate(screener_evidence_zeroed_total[1h]) > 0.5
+        for: 30m
+        labels: { severity: info }
+        annotations:
+          summary: "Competencies are being zeroed unusually often"
+          runbook: "docs/runbook.md#evidence-zeroed"

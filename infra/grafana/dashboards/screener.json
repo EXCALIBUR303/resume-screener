@@ -1,0 +1,57 @@
+{
+  "title": "Resume Screener",
+  "uid": "screener-main",
+  "schemaVersion": 39,
+  "refresh": "30s",
+  "time": { "from": "now-6h", "to": "now" },
+  "panels": [
+    {
+      "type": "stat", "title": "Dead-lettered jobs",
+      "gridPos": { "h": 4, "w": 6, "x": 0, "y": 0 },
+      "targets": [{ "expr": "screener_dead_letter_depth" }],
+      "fieldConfig": { "defaults": { "thresholds": { "mode": "absolute",
+        "steps": [{ "color": "green", "value": null }, { "color": "red", "value": 1 }] } } }
+    },
+    {
+      "type": "stat", "title": "Oldest pending job",
+      "gridPos": { "h": 4, "w": 6, "x": 6, "y": 0 },
+      "targets": [{ "expr": "screener_oldest_pending_job_seconds" }],
+      "fieldConfig": { "defaults": { "unit": "s" } }
+    },
+    {
+      "type": "timeseries", "title": "Queue depth by type",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+      "targets": [{ "expr": "screener_queue_depth{status=\"pending\"}",
+                    "legendFormat": "{{job_type}}" }]
+    },
+    {
+      "type": "timeseries", "title": "PII entities redacted per minute",
+      "description": "A drop to zero while uploads continue is the alarm, not the number itself.",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 4 },
+      "targets": [{ "expr": "rate(screener_redaction_entities_total[5m]) * 60",
+                    "legendFormat": "{{entity}}" }]
+    },
+    {
+      "type": "timeseries", "title": "Upload rejections by reason",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
+      "targets": [{ "expr": "rate(screener_upload_rejections_total[5m])",
+                    "legendFormat": "{{reason}}" }]
+    },
+    {
+      "type": "timeseries", "title": "Score integrity flags",
+      "description": "injection_suspected and partially_supported rising together usually means one attacker, not a trend.",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 12 },
+      "targets": [{ "expr": "rate(screener_scores_total[15m])", "legendFormat": "{{flag}}" }]
+    },
+    {
+      "type": "timeseries", "title": "Model latency (p50 / p95)",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 16 },
+      "targets": [
+        { "expr": "histogram_quantile(0.5, rate(screener_llm_duration_seconds_bucket[10m]))",
+          "legendFormat": "p50" },
+        { "expr": "histogram_quantile(0.95, rate(screener_llm_duration_seconds_bucket[10m]))",
+          "legendFormat": "p95" }
+      ]
+    }
+  ]
+}

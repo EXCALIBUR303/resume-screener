@@ -81,6 +81,7 @@ upload ──▶ sniff + cap ──▶ quarantine ──▶ promote ──▶ en
 | **Ranking** | Deterministic skill/experience terms + hybrid retrieval + a capped model term, every contribution itemised |
 | **Web UI** | Sign-in, resume upload, role creation, ranked candidates, and an explanation drawer showing every term with who computed it |
 | **Interview copilot** | Questions grounded in verified gaps, with anchored rubrics; ungrounded or unlawful questions are rejected |
+| **Operations** | Prometheus metrics with five alert rules, a Grafana dashboard, cross-process tracing, and a [runbook](docs/runbook.md) whose procedures have actually been run |
 | **Security** | Tamper-evident audit chain, tenant isolation proven against a live database, 40-case injection corpus |
 
 ---

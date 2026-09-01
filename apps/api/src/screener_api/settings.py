@@ -88,6 +88,13 @@ class Settings(BaseSettings):
     llm_max_monthly_tokens: int = 0
     llm_circuit_breaker_failures: int = 5
 
+    otel_enabled: bool = False
+    otel_exporter_otlp_endpoint: str = "http://otel-collector:4317"
+    # /metrics is unauthenticated by convention so Prometheus can scrape it, and
+    # it leaks operational shape (queue depth, rejection reasons, tenant volume).
+    # Off unless explicitly enabled, and documented as internal-network-only.
+    metrics_enabled: bool = True
+
     ocr_enabled: bool = True
     ocr_min_confidence: int = 60
     parse_timeout_seconds: int = 60

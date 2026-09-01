@@ -23,6 +23,7 @@ PUBLIC_ROUTES: dict[tuple[str, str], str] = {
     ("GET", "/readyz"): "readiness probe; returns component status only",
     ("POST", "/auth/login"): "issues credentials; cannot require them",
     ("POST", "/auth/refresh"): "authenticated by the refresh token itself",
+    ("GET", "/metrics"): "Prometheus scrape; internal network only, not proxied by Caddy",
 }
 
 # Routes that require a logged-in user but no specific permission.

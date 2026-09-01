@@ -5,7 +5,7 @@ from __future__ import annotations
 import uuid
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel, ConfigDict
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -13,6 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from screener_api.db import get_session
 from screener_api.models import AuditEvent
 from screener_api.repos import UserRepo
+from screener_api.security import audit
 from screener_api.security.audit import ChainBrokenError, verify_chain
 from screener_api.security.deps import Actor, requires
 from screener_api.security.roles import Permission
@@ -89,6 +90,57 @@ async def list_audit(
         .all()
     )
     return [AuditEventOut.model_validate(e) for e in events]
+
+
+class DeadJobOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: uuid.UUID
+    job_type: str
+    attempts: int
+    error_class: str | None
+    last_error: str | None
+
+
+@router.get("/dlq", response_model=list[DeadJobOut])
+async def list_dead_letters(
+    session: Annotated[AsyncSession, Depends(get_session)],
+    actor: Annotated[Actor, requires(Permission.DLQ_MANAGE)],
+    limit: int = 50,
+) -> list[DeadJobOut]:
+    """Jobs that were abandoned. Alert on this being non-empty."""
+    from screener_api.queue import dead_letters
+
+    return [DeadJobOut.model_validate(j) for j in await dead_letters(session, limit=limit)]
+
+
+@router.post("/dlq/{job_id}/replay", status_code=status.HTTP_202_ACCEPTED)
+async def replay_dead_letter(
+    job_id: uuid.UUID,
+    request: Request,
+    session: Annotated[AsyncSession, Depends(get_session)],
+    actor: Annotated[Actor, requires(Permission.DLQ_MANAGE)],
+) -> dict[str, str]:
+    """Return one dead job to the queue with a fresh attempt budget.
+
+    Audited: replaying work that previously failed is exactly the kind of
+    operator action that needs to be attributable afterwards.
+    """
+    from screener_api.queue import replay
+
+    if not await replay(session, job_id):
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "No dead job with that id")
+
+    await audit.record(
+        session,
+        action="dlq.replayed",
+        resource_type="job",
+        resource_id=str(job_id),
+        org_id=actor.org_id,
+        actor_user_id=actor.user_id,
+        actor_ip=request.client.host if request.client else None,
+    )
+    await session.commit()
+    return {"status": "requeued", "job_id": str(job_id)}
 
 
 @router.get("/audit/verify", response_model=ChainStatus)

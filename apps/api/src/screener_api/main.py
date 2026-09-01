@@ -9,6 +9,8 @@ from typing import Any
 import structlog
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import Response
+from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
 from sqlalchemy import text
 
 from screener_api.db import dispose_engine, init_engine
@@ -71,6 +73,33 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(candidates.router)
     app.include_router(jobs.router)
     app.include_router(interviews.router)
+
+    if settings.metrics_enabled:
+
+        @app.get("/metrics", tags=["ops"], include_in_schema=False)
+        async def metrics() -> Response:
+            """Prometheus scrape endpoint.
+
+            Unauthenticated, because that is how Prometheus scrapes. It exposes
+            operational shape - queue depth, rejection reasons, throughput - so
+            it must stay on an internal network. Caddy does not proxy it, and
+            the runbook says so.
+            """
+            from screener_api.db import _sessionmaker
+            from screener_api.observability.metrics import REGISTRY
+            from screener_api.observability.queue_stats import collect_queue_depths
+
+            if _sessionmaker is not None:
+                try:
+                    async with _sessionmaker() as session:
+                        await collect_queue_depths(session)
+                except Exception as exc:
+                    # Never let a scrape failure take the endpoint down: a
+                    # monitoring endpoint that 500s during an incident is worse
+                    # than one with a stale gauge.
+                    log.warning("metrics.queue_sample_failed", error=type(exc).__name__)
+
+            return Response(content=generate_latest(REGISTRY), media_type=CONTENT_TYPE_LATEST)
 
     @app.get("/healthz", tags=["ops"])
     async def healthz() -> dict[str, str]:

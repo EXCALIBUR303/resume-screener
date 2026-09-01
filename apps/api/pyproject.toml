@@ -42,6 +42,9 @@ dependencies = [
     # project the image size is a real constraint. See ADR-0010.
     "fastembed>=0.5",
     "pgvector>=0.3",
+    "prometheus-client>=0.21",
+    "opentelemetry-api>=1.29",
+    "opentelemetry-sdk>=1.29",
 ]
 
 [project.optional-dependencies]
@@ -91,7 +94,7 @@ packages = ["screener_api"]
 module = [
     "alembic.*", "pytesseract.*", "pdf2image.*", "langdetect.*",
     "defusedxml.*", "presidio_analyzer.*", "presidio_anonymizer.*", "spacy.*",
-    "fastembed.*",
+    "fastembed.*", "prometheus_client.*", "opentelemetry.*",
 ]
 ignore_missing_imports = true
 
