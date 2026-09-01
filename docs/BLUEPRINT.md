@@ -700,10 +700,15 @@ ABAC. Each as its own PR + ADR.
 >   is four services against a constraint that forbids hidden ongoing costs, and
 >   what it would buy is a script. The script exists and runs against a real
 >   local model.
-> - **Audio answers via `faster-whisper` — not built.** It is the one item that
->   adds a modality rather than depth, and "multi-modal" is already defined in
->   §N.6 as text plus scanned image. Nothing in the repository claims audio
->   works; the feature flag `FEATURE_AUDIO_ANSWERS` remains `false`.
+> - **Audio answers via `faster-whisper` — measured, then declined.**
+>   [ADR-0022](adr/0022-audio-answers-are-not-scored.md). Transcription works
+>   fine; a transcript cannot carry the evidence this system scores on. Three of
+>   six ordinary-English sentences produce a skill name under the scorer's own
+>   matching rule — "the airflow in the building", "a spark of creativity", "the
+>   python at the zoo". The benchmark is committed and runnable
+>   (`make asr-bench`); the dependency is deliberately absent from
+>   `requirements.lock`. `FEATURE_AUDIO_ANSWERS` remains `false` and nothing
+>   behind it exists.
 
 **Totals.** MVP (M0–M6, M9 thin) ≈ **90–110 h**. V1 (+M7, M8, M9 full, M10, M13, optionally
 M11–M12) ≈ **190–230 h** cumulative.

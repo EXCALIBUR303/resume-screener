@@ -117,6 +117,10 @@ fairness: ## Counterfactual fairness probe: does a protected signal move the sco
 prompt-ab: ## A/B two prompt versions against a REAL model (needs ollama)
 	$(VENV)/python evals/prompt_ab.py --versions 1,2 --pairs 10 --repeats 2
 
+.PHONY: asr-bench
+asr-bench: ## Can a transcript carry the evidence we score on? (needs faster-whisper)
+	$(VENV)/python evals/audio/asr_vocabulary.py --models tiny,small
+
 .PHONY: sbom
 sbom: ## CycloneDX SBOM for both images and the repository (needs trivy)
 	@command -v trivy >/dev/null || { echo "trivy not installed: brew install trivy"; exit 1; }

@@ -1,0 +1,188 @@
+{
+  "skills_tested": [
+    "PostgreSQL",
+    "Kubernetes",
+    "Python",
+    "FastAPI",
+    "pytest",
+    "Redis",
+    "Docker",
+    "Spark",
+    "Airflow",
+    "Snowflake",
+    "PyTorch",
+    "TypeScript",
+    "Terraform",
+    "Prometheus"
+  ],
+  "speech": "synthesised; clean, single-speaker, unaccented. These are a BEST case.",
+  "clips": {
+    "technical": 11,
+    "control": 6,
+    "near_miss": 6
+  },
+  "results": [
+    {
+      "condition": "technical",
+      "model": "tiny",
+      "glossary": false,
+      "clips": 11,
+      "recall": 0.7143,
+      "mentions_expected": 14,
+      "mentions_found": 10,
+      "lost": [
+        "FastAPI",
+        "PostgreSQL",
+        "PyTorch",
+        "pytest"
+      ],
+      "false_claims": []
+    },
+    {
+      "condition": "control",
+      "model": "tiny",
+      "glossary": false,
+      "clips": 6,
+      "recall": null,
+      "mentions_expected": 0,
+      "mentions_found": 0,
+      "lost": [],
+      "false_claims": []
+    },
+    {
+      "condition": "near_miss",
+      "model": "tiny",
+      "glossary": false,
+      "clips": 6,
+      "recall": null,
+      "mentions_expected": 0,
+      "mentions_found": 0,
+      "lost": [],
+      "false_claims": [
+        "Airflow <- The airflow in the building was poor so we opened the windows.",
+        "Spark <- She brought a spark of creativity to every meeting we ran.",
+        "Python <- The python at the zoo was fed once a fortnight by the keeper."
+      ]
+    },
+    {
+      "condition": "technical",
+      "model": "tiny",
+      "glossary": true,
+      "clips": 11,
+      "recall": 1.0,
+      "mentions_expected": 14,
+      "mentions_found": 14,
+      "lost": [],
+      "false_claims": []
+    },
+    {
+      "condition": "control",
+      "model": "tiny",
+      "glossary": true,
+      "clips": 6,
+      "recall": null,
+      "mentions_expected": 0,
+      "mentions_found": 0,
+      "lost": [],
+      "false_claims": []
+    },
+    {
+      "condition": "near_miss",
+      "model": "tiny",
+      "glossary": true,
+      "clips": 6,
+      "recall": null,
+      "mentions_expected": 0,
+      "mentions_found": 0,
+      "lost": [],
+      "false_claims": [
+        "Airflow <- The airflow in the building was poor so we opened the windows.",
+        "Spark <- She brought a spark of creativity to every meeting we ran.",
+        "Python <- The python at the zoo was fed once a fortnight by the keeper."
+      ]
+    },
+    {
+      "condition": "technical",
+      "model": "small",
+      "glossary": false,
+      "clips": 11,
+      "recall": 0.7857,
+      "mentions_expected": 14,
+      "mentions_found": 11,
+      "lost": [
+        "FastAPI",
+        "PostgreSQL",
+        "Redis"
+      ],
+      "false_claims": []
+    },
+    {
+      "condition": "control",
+      "model": "small",
+      "glossary": false,
+      "clips": 6,
+      "recall": null,
+      "mentions_expected": 0,
+      "mentions_found": 0,
+      "lost": [],
+      "false_claims": []
+    },
+    {
+      "condition": "near_miss",
+      "model": "small",
+      "glossary": false,
+      "clips": 6,
+      "recall": null,
+      "mentions_expected": 0,
+      "mentions_found": 0,
+      "lost": [],
+      "false_claims": [
+        "Airflow <- The airflow in the building was poor so we opened the windows.",
+        "Spark <- She brought a spark of creativity to every meeting we ran.",
+        "Python <- The python at the zoo was fed once a fortnight by the keeper."
+      ]
+    },
+    {
+      "condition": "technical",
+      "model": "small",
+      "glossary": true,
+      "clips": 11,
+      "recall": 1.0,
+      "mentions_expected": 14,
+      "mentions_found": 14,
+      "lost": [],
+      "false_claims": []
+    },
+    {
+      "condition": "control",
+      "model": "small",
+      "glossary": true,
+      "clips": 6,
+      "recall": null,
+      "mentions_expected": 0,
+      "mentions_found": 0,
+      "lost": [],
+      "false_claims": []
+    },
+    {
+      "condition": "near_miss",
+      "model": "small",
+      "glossary": true,
+      "clips": 6,
+      "recall": null,
+      "mentions_expected": 0,
+      "mentions_found": 0,
+      "lost": [],
+      "false_claims": [
+        "Airflow <- The airflow in the building was poor so we opened the windows.",
+        "Spark <- She brought a spark of creativity to every meeting we ran.",
+        "Python <- The python at the zoo was fed once a fortnight by the keeper."
+      ]
+    }
+  ],
+  "near_miss_claims": [
+    "Airflow <- The airflow in the building was poor so we opened the windows.",
+    "Python <- The python at the zoo was fed once a fortnight by the keeper.",
+    "Spark <- She brought a spark of creativity to every meeting we ran."
+  ]
+}

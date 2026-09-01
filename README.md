@@ -76,8 +76,9 @@ This project treats all three as engineering problems with testable answers.
 
 > **"Multi-modal" means text and scanned image**, not audio or video. A resume can arrive as
 > extractable text or as a scan that goes through OCR, and both take the same redaction and
-> scoring path. Audio interview answers are designed in
-> [the blueprint](docs/BLUEPRINT.md#m14--v2-depth--3040-h--nice--v2) and **not built**;
+> scoring path. Audio answers were measured and **declined**, not skipped — a transcript cannot
+> carry the evidence this system scores on
+> ([ADR-0022](docs/adr/0022-audio-answers-are-not-scored.md), and see below).
 > `FEATURE_AUDIO_ANSWERS` is `false` and nothing behind it exists.
 
 ```
@@ -244,6 +245,34 @@ citable evidence at all, and those score zero.
 Ten pairs, three runs, one model. v2's `0.000` means it did not fail in thirty scored pairs, not
 that it never fails. ([ADR-0021](docs/adr/0021-prompt-ab-against-a-real-model.md))
 
+### Why audio answers were declined
+
+`make asr-bench` asks whether a transcript can carry the evidence this system scores on.
+
+| condition | tiny | small | with a job glossary |
+|---|---|---|---|
+| skill mentions surviving transcription | 71% | 79% | **100%** |
+| skills invented from non-technical speech | 0 | 0 | 0 |
+| **skills claimed by ordinary English** | **3 / 6 clips** | **3 / 6 clips** | **3 / 6 clips** |
+
+A glossary of the job's required skills fixes recall completely. It does nothing for the last
+row, and neither does a bigger model:
+
+```
+Airflow  <- The airflow in the building was poor so we opened the windows.
+Python   <- The python at the zoo was fed once a fortnight by the keeper.
+Spark    <- She brought a spark of creativity to every meeting we ran.
+```
+
+Those transcripts are **correct**. The failure is the matching rule: a case-insensitive
+substring search cannot tell "I wrote Python" from "the python at the zoo". A written resume
+never says the latter; a spoken answer is full of it. The evidence gate does not help either —
+it checks a quote against the transcript, and the transcript is the corrupted artifact.
+
+So `faster-whisper` is not a dependency of this project, and the benchmark that says why is
+committed and runnable. Synthesised speech, small n — a **best case**, and stated as one.
+([ADR-0022](docs/adr/0022-audio-answers-are-not-scored.md))
+
 There is no accuracy percentage anywhere in this project.
 
 ---
@@ -319,7 +348,7 @@ and whether the strongest claim holds, so nobody has to take the README's word f
 
 ## What I learned
 
-Twenty-one [ADRs](docs/adr/) record the decisions. Six where I was wrong, and the measurement that
+Twenty-two [ADRs](docs/adr/) record the decisions. Six where I was wrong, and the measurement that
 showed it:
 
 **I claimed the deterministic score was "mathematically immune to injection." It wasn't.**
