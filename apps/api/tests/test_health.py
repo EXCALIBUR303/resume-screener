@@ -69,12 +69,14 @@ def test_cloud_mode_does_not_claim_network_isolation() -> None:
     assert not cloud.worker_parse_is_network_isolated
 
 
-def test_local_mode_without_a_socket_does_not_claim_isolation() -> None:
-    """Setting the mode is not enough: without the socket the worker is on a
-    network whatever the label says."""
+def test_the_isolation_flag_reports_mode_not_this_process_config() -> None:
+    """Regression: the flag first also checked this process's socket setting, so
+    a correctly-configured LOCAL stack reported False — the API does not use the
+    socket. A process cannot observe another container's network from its own
+    environment. Compose enforces the guarantee; the compose test verifies it."""
     from screener_api.settings import Settings
 
-    mislabelled = Settings(
+    api_without_socket = Settings(
         app_env="dev",
         postgres_password="x",
         app_kek="x",
@@ -82,4 +84,4 @@ def test_local_mode_without_a_socket_does_not_claim_isolation() -> None:
         deployment_mode="local",
         postgres_socket_dir="",
     )
-    assert not mislabelled.worker_parse_is_network_isolated
+    assert api_without_socket.worker_parse_is_network_isolated
