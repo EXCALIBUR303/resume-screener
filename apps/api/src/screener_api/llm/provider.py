@@ -58,7 +58,13 @@ class Completion:
 class LLMProvider(Protocol):
     """The only surface the rest of the codebase may use to reach a model."""
 
-    model_id: str
+    # Read-only on purpose. Declaring it settable made the protocol reject any
+    # implementation that computes it — which the router does, since the model
+    # it would try first is derived from its route list rather than stored.
+    # Nothing in the codebase assigns to this; a concrete dataclass field still
+    # satisfies it.
+    @property
+    def model_id(self) -> str: ...
 
     def complete(
         self,

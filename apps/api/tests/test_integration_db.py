@@ -910,3 +910,98 @@ async def test_an_endpoint_whose_url_turned_private_is_disabled_not_retried(
     endpoint = (await session.execute(select(WebhookEndpoint))).scalar_one()
     assert not endpoint.is_active
     assert endpoint.disabled_reason is not None and "refused" in endpoint.disabled_reason
+
+
+async def test_the_match_records_the_model_that_answered_not_the_one_configured(
+    session: AsyncSession, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Provenance under fallback (ADR-0019).
+
+    The pipeline used to write `gateway.provider.model_id`, which is the model
+    the router would try FIRST. With one provider the two agree. With a router
+    they do not, and a Match would name the primary while a fallback wrote the
+    answer — a stored score whose provenance is wrong is worse than one with no
+    provenance, because it looks trustworthy.
+    """
+    from screener_api.llm.factory import LLMGateway
+    from screener_api.llm.prompts import latest_version, load
+    from screener_api.llm.provider import LLMUnavailableError, StubProvider
+    from screener_api.llm.router import Route, RoutedProvider
+    from screener_api.models import JobPosting, Match
+    from screener_api.scoring.pipeline import handle_score_job
+
+    # Retrieval is incidental to what this asserts, and embedding the query
+    # would pull a 109 MB ONNX model into CI for no benefit. The document has
+    # no chunks, so hybrid_search returns nothing either way and the pipeline
+    # falls back to scoring the whole text.
+    monkeypatch.setattr("screener_api.retrieval.embedding.embed_query", lambda _q: [0.0] * 384)
+
+    org = await _org(session, "Fallback Org")
+    resume_id, job_id = uuid.uuid4(), uuid.uuid4()
+    file_id, candidate_id = uuid.uuid4(), uuid.uuid4()
+
+    await session.execute(
+        text(
+            "INSERT INTO files (id, org_id, sha256, storage_key, byte_size, "
+            "mime_sniffed, mime_resolved) VALUES (:i,:o,:s,'k',1,'application/pdf',"
+            "'application/pdf')"
+        ),
+        {"i": file_id, "o": org.id, "s": "a" * 64},
+    )
+    await session.execute(
+        text("INSERT INTO candidates (id, org_id, pseudonym) VALUES (:i,:o,'CAND')"),
+        {"i": candidate_id, "o": org.id},
+    )
+    await session.execute(
+        text(
+            "INSERT INTO resumes (id, org_id, candidate_id, file_id, parse_status) "
+            "VALUES (:i,:o,:c,:f,'parsed')"
+        ),
+        {"i": resume_id, "o": org.id, "c": candidate_id, "f": file_id},
+    )
+    await session.execute(
+        text(
+            "INSERT INTO resume_texts (id, org_id, resume_id, raw_text, text_redacted, "
+            "char_count, extractor) VALUES (:i,:o,:r,:t,:t,:n,'test')"
+        ),
+        {
+            "i": uuid.uuid4(),
+            "o": org.id,
+            "r": resume_id,
+            "t": "Built services in Python on PostgreSQL. Ran workloads on Kubernetes.",
+            "n": 67,
+        },
+    )
+    session.add(
+        JobPosting(
+            id=job_id,
+            org_id=org.id,
+            title="Backend Engineer",
+            description="Python on PostgreSQL, deployed on Kubernetes.",
+            required_skills=["Python", "PostgreSQL"],
+            nice_to_have=[],
+            hard_requirements=[],
+            min_years=1,
+        )
+    )
+    await session.commit()
+
+    class AlwaysDown:
+        model_id = "primary-that-is-down"
+
+        def complete(self, **kw: object) -> object:
+            raise LLMUnavailableError("host is down")
+
+    router = RoutedProvider(routes=[Route(AlwaysDown()), Route(StubProvider())])  # type: ignore[arg-type]
+    await handle_score_job(
+        session,
+        {"job_id": str(job_id), "resume_id": str(resume_id)},
+        gateway=LLMGateway(router),
+        prompt=load("match_score", latest_version("match_score")),
+        nonce="0" * 16,
+    )
+    await session.commit()
+
+    match = (await session.execute(select(Match))).scalar_one()
+    assert match.model_id == "stub-v1"  # the one that answered
+    assert match.model_id != router.model_id  # not the one configured first

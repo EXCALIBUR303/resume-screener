@@ -122,13 +122,22 @@ async def handle_score_job(
         nonce=nonce or secrets.token_hex(8),
         document="\n\n".join(f"[{cid}] {body}" for cid, body in sources.items()),
     )
+    # Provenance comes from the COMPLETION, not from the configured provider.
+    # With one provider the two agree; with a router in front of several they do
+    # not, and the Match row would name the primary while a fallback wrote the
+    # answer. A score is not interpretable without knowing what produced it, so
+    # this has to be the model that actually replied (ADR-0019). It falls back
+    # to the configured label only on the degraded path, where nothing replied.
+    answered_by = gateway.provider.model_id
     try:
-        assessment = gateway.structured(
+        result = gateway.structured(
             system=system,
             user=user,
             model=RubricAssessment,
             schema=MATCH_SCORE_SCHEMA,
-        ).value
+        )
+        assessment = result.value
+        answered_by = result.completion.model_id
     except (SchemaViolationError, LLMError) as exc:
         # Degrade rather than fail: a candidate must not be dropped because our
         # model host was down. The result is flagged and penalised, not hidden.
@@ -164,7 +173,7 @@ async def handle_score_job(
                 Match.job_id == job_id,
                 Match.resume_id == resume_id,
                 Match.prompt_version == prompt.version_id,
-                Match.model_id == gateway.provider.model_id,
+                Match.model_id == answered_by,
             )
         )
     ).scalar_one_or_none()
@@ -174,7 +183,7 @@ async def handle_score_job(
         org_id=resume.org_id,
         job_id=job_id,
         resume_id=resume_id,
-        model_id=gateway.provider.model_id,
+        model_id=answered_by,
         prompt_version=prompt.version_id,
         prompt_hash=prompt.content_hash,
     )
@@ -247,12 +256,10 @@ async def handle_score_job(
             "hard_gate_failures": fused.hard_gate_failures,
             "matched_skill_count": len(deterministic.matched_skills),
             "missing_skill_count": len(deterministic.missing_skills),
-            "model_id": gateway.provider.model_id,
+            "model_id": answered_by,
             "prompt_version": prompt.version_id,
         },
-        event_key=(
-            f"resume.scored:{job_id}:{resume_id}:{prompt.version_id}:{gateway.provider.model_id}"
-        ),
+        event_key=(f"resume.scored:{job_id}:{resume_id}:{prompt.version_id}:{answered_by}"),
     )
 
     log.info(

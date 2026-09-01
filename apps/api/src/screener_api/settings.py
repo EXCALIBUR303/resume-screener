@@ -88,6 +88,15 @@ class Settings(BaseSettings):
     llm_max_monthly_tokens: int = 0
     llm_circuit_breaker_failures: int = 5
 
+    # Optional second provider, tried only when the primary fails in a way
+    # another host could plausibly fix (timeout, unreachable). Empty disables
+    # it entirely, which is the default: a fallback that nobody configured
+    # should not quietly exist (ADR-0019).
+    llm_fallback_provider: Literal["", "stub", "ollama", "openai_compatible"] = ""
+    llm_fallback_model: str = ""
+    llm_fallback_base_url: str = ""
+    llm_fallback_api_key: SecretStr = SecretStr("")
+
     otel_enabled: bool = False
     otel_exporter_otlp_endpoint: str = "http://otel-collector:4317"
     # /metrics is unauthenticated by convention so Prometheus can scrape it, and
