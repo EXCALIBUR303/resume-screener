@@ -251,3 +251,18 @@ def test_a_line_holding_only_protected_attributes_is_dropped_entirely() -> None:
         use_ner=False,
     ).text
     assert out == "PERSONAL DETAILS\nLanguages: English"
+
+
+def test_a_deletion_takes_exactly_one_separator_with_it() -> None:
+    """Both sides was the opposite mistake, and it fused the neighbours.
+
+    "LOCATION_2 | Female, married | DOB_1" came out as "LOCATION_2DOB_1" — two
+    unrelated identifiers glued into one token that means nothing.
+    """
+    out = redact(
+        "Bengaluru, India | Female, married | D.O.B: 12/04/1997 | PAN ABCDE1234F",
+        use_ner=False,
+    ).text
+    assert "|" in out
+    assert "DOB_1 | PAN" in out
+    assert "Female" not in out and "married" not in out

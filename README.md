@@ -5,10 +5,9 @@ prove, and survives a resume that tries to talk to the model.
 
 [![license](https://img.shields.io/badge/license-Apache--2.0-2E6B5B)](LICENSE)
 
-> **Status.** 413 tests pass and every scanner is clean **locally**. These are static
-> badges, not CI status — the workflows in `.github/workflows/` have never executed,
-> because this repository has no remote yet. Replace this line with real badges once
-> it is pushed and a run goes green.
+> **Status.** 488 tests, and `ci`, `security` and `eval` run green on every push to `main`.
+> The badge above is static (it states the licence, which does not change); the workflows
+> in `.github/workflows/` are the real signal.
 
 > **Decision support only.** This is a portfolio and research project. It does not make hiring
 > decisions, it has not been audited for bias, it is not a compliant automated employment
@@ -24,22 +23,35 @@ UPLOADED BY THE RECRUITER                    WHAT THE MODEL ACTUALLY RECEIVES
 ─────────────────────────────────────────    ──────────────────────────────────────────
 Priya Ramanathan                             PERSON_1
 priya.ramanathan@example.com | +91 98765…    EMAIL_1 | PHONE_1 | PROFILE_1
-Bengaluru, India | Female, married |         LOCATION_1, LOCATION_2 | GENDER_1,
-  D.O.B: 12/04/1997 | PAN ABCDE1234F           MARITAL_1 | DOB_1 | ORG_1
+Bengaluru, India | Female, married |         LOCATION_1, LOCATION_2 | DOB_1 |
+  D.O.B: 12/04/1997 | PAN ABCDE1234F           PAN PAN_1
 
 WORK EXPERIENCE                              WORK EXPERIENCE
 Senior Backend Engineer,                     Senior Backend Engineer,
-  Invented Systems Ltd (2021-2026)             ORG_2 (2021-2026)
+  Invented Systems Ltd (2021-2026)             ORG_1 (2021-2026)
 Priya designed payment services in           PERSON_1 designed payment services in
   Python on PostgreSQL at 12k req/s            Python on PostgreSQL at 12k req/s
+Ramanathan led the migration from a          PERSON_1 led the migration from a
+  monolith to six services                     monolith to six services
+
+EDUCATION                                    EDUCATION
+B.Tech Computer Science,                     B.Tech Computer Science,
+  Imaginary Institute of Tech., 2019           Imaginary ORG_2
 
 TECHNICAL SKILLS                             TECHNICAL SKILLS
 Python, PostgreSQL, Redis, Docker,           Python, PostgreSQL, Redis, Docker,
   Kubernetes, REST APIs, pytest                Kubernetes, REST APIs, pytest
 ```
 
-17 identifiers removed. **Every skill, employment date and achievement intact.** Redaction runs
+15 identifiers removed. **Every skill, employment date and achievement intact.** Redaction runs
 inside a worker with no network access, before anything is embedded, prompted, indexed or logged.
+
+Note what is *not* on the right: `Female, married` left no token at all, and neither did the
+graduation year. Protected attributes are **deleted, not pseudonymised** — a `GENDER_1` token
+would hide which gender while advertising that the candidate disclosed one, and who volunteers
+that line correlates with the very attribute being removed. Names and contact details keep their
+tokens because a recruiter re-hydrates those to see who they are looking at; nobody re-hydrates a
+candidate's religion. ([ADR-0017](docs/adr/0017-redaction-was-not-name-invariant.md))
 
 Reproduce it yourself: `make redact-demo`
 

@@ -525,12 +525,21 @@ def redact(
 # cleaned up before it is dropped. \x00 cannot appear in extracted text.
 _DELETED = "\x00"
 
-# A deletion takes its list separator with it. Without this, removing the
-# pronoun line from "EMAIL_1 | PHONE_1 | (she/her)" left "EMAIL_1 | PHONE_1 |",
-# and a trailing pipe is still a disclosure — it says a field was there.
-_SEPARATOR_BEFORE = re.compile(r"[ \t]*[|,;·][ \t]*" + _DELETED)
-_SEPARATOR_AFTER = re.compile(_DELETED + r"[ \t]*[|,;·][ \t]*")
 _ENCLOSING_PARENS = re.compile(r"\([ \t]*" + _DELETED + r"[ \t]*\)")
+
+# A deletion takes its list separator with it — but exactly ONE of them.
+# Without any, removing the pronouns from "EMAIL_1 | PHONE_1 | (she/her)" left a
+# trailing pipe, which is still a disclosure: it says a field was there. Taking
+# the separator on BOTH sides is the opposite mistake, and it fused the
+# neighbours: "LOCATION_2 | Female, married | DOB_1" became
+# "LOCATION_2DOB_1". The alternation is ordered and applied in one pass, so a
+# separator before the deletion is consumed and the one after it is left for
+# the next item in the list.
+_SENTINEL_WITH_ONE_SEPARATOR = re.compile(
+    r"[ \t]*[|,;·][ \t]*" + _DELETED  # " | X"  -> ""
+    + r"|" + _DELETED + r"[ \t]*[|,;·][ \t]*"  # "X | "  -> ""
+    + r"|" + _DELETED  # bare
+)
 
 
 def _clean_deletions(text: str) -> str:
@@ -544,8 +553,9 @@ def _clean_deletions(text: str) -> str:
         return text
 
     text = _ENCLOSING_PARENS.sub(_DELETED, text)
-    text = _SEPARATOR_BEFORE.sub(_DELETED, text)
-    text = _SEPARATOR_AFTER.sub(_DELETED, text)
+    # Collapses to the sentinel, not to nothing: the line-drop check below
+    # still needs to see that something was removed from this line.
+    text = _SENTINEL_WITH_ONE_SEPARATOR.sub(_DELETED, text)
 
     kept: list[str] = []
     for line in text.split("\n"):
